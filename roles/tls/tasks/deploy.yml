@@ -1,0 +1,50 @@
+---
+- name: Deploy signed server certificate
+  ansible.builtin.copy:
+    src: "{{ tls_signed_certificate_source }}"
+    remote_src: "{{ tls_source_remote | bool }}"
+    dest: "{{ tls_certificate_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install local CA certificate
+  ansible.builtin.copy:
+    src: "{{ tls_ca_certificate_source }}"
+    remote_src: "{{ tls_source_remote | bool }}"
+    dest: /usr/local/share/ca-certificates/hardened-ansible-ca.crt
+    owner: root
+    group: root
+    mode: "0644"
+  register: ca_certificate_deployment
+
+- name: Update system CA certificate store
+  ansible.builtin.command:
+    cmd: update-ca-certificates
+  when: ca_certificate_deployment.changed
+  changed_when: true
+
+- name: Deploy HTTPS Nginx virtual host
+  ansible.builtin.template:
+    src: https-site.conf.j2
+    dest: "/etc/nginx/sites-available/{{ inventory_hostname }}-https"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Validate and reload Nginx
+
+- name: Enable HTTPS Nginx virtual host
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ inventory_hostname }}-https"
+    dest: "/etc/nginx/sites-enabled/{{ inventory_hostname }}-https"
+    state: link
+  notify: Validate and reload Nginx
+
+- name: Configure HTTP to HTTPS redirect
+  ansible.builtin.template:
+    src: http-redirect.conf.j2
+    dest: "/etc/nginx/sites-available/{{ inventory_hostname }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Validate and reload Nginx

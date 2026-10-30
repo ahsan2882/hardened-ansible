@@ -1,0 +1,33 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Verify installed packages
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Assert required packages are installed
+      ansible.builtin.assert:
+        that:
+          - "'curl' in ansible_facts.packages"
+          - "'wget' in ansible_facts.packages"
+          - "'git' in ansible_facts.packages"
+          - "'ca-certificates' in ansible_facts.packages"
+        fail_msg: "One or more common packages are missing."
+        success_msg: "All required common packages are installed."
+
+    - name: Verify system timezone
+      ansible.builtin.command:
+        cmd: timedatectl show --property=Timezone --value
+      register: timezone_result
+      changed_when: false
+
+    - name: Assert timezone is UTC
+      ansible.builtin.assert:
+        that:
+          - timezone_result.stdout == "UTC"
+        fail_msg: "System timezone is not UTC."
+        success_msg: "System timezone is correctly configured."

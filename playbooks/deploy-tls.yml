@@ -1,0 +1,11 @@
+---
+- name: Deploy TLS certificates to web servers
+  hosts: webservers
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Deploy TLS artifacts
+      ansible.builtin.import_role:
+        name: tls
+        tasks_from: deploy

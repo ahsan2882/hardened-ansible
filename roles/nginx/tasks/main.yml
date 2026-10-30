@@ -1,0 +1,59 @@
+---
+- name: Install Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create Nginx document root
+  ansible.builtin.file:
+    path: "{{ nginx_document_root }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Deploy Nginx landing page
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: "{{ nginx_document_root }}/index.html"
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
+- name: Deploy Nginx virtual host
+  ansible.builtin.template:
+    src: site.conf.j2
+    dest: "/etc/nginx/sites-available/{{ inventory_hostname }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: not nginx_tls_enabled | bool
+  notify: Reload Nginx
+
+- name: Enable Nginx virtual host
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ inventory_hostname }}"
+    dest: "/etc/nginx/sites-enabled/{{ inventory_hostname }}"
+    state: link
+  when: not nginx_tls_enabled | bool
+  notify: Reload Nginx
+
+- name: Remove default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  when: nginx_remove_default_site
+  notify: Reload Nginx
+
+- name: Validate Nginx configuration
+  ansible.builtin.command:
+    cmd: nginx -t
+  changed_when: false
+
+- name: Ensure Nginx service is enabled and running
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: "{{ nginx_service_enabled }}"

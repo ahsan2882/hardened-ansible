@@ -1,0 +1,48 @@
+---
+- name: Verify firewall configuration
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check UFW package
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Assert UFW is installed
+      ansible.builtin.assert:
+        that:
+          - "'ufw' in ansible_facts.packages"
+
+    - name: Retrieve UFW status
+      ansible.builtin.command:
+        cmd: ufw status verbose
+      register: ufw_status
+      changed_when: false
+
+    - name: Read UFW default configuration
+      ansible.builtin.command:
+        cmd: grep '^DEFAULT_FORWARD_POLICY=' /etc/default/ufw
+      register: ufw_default_forward_policy
+      changed_when: false
+
+    - name: Assert routed traffic is denied
+      ansible.builtin.assert:
+        that:
+          - "'DEFAULT_FORWARD_POLICY=\"DROP\"' in ufw_default_forward_policy.stdout"
+        fail_msg: "UFW routed traffic policy is not set to DROP."
+
+    - name: Retrieve configured firewall rules
+      ansible.builtin.command:
+        cmd: ufw status
+      register: ufw_rules
+      changed_when: false
+
+    - name: Assert required ports are allowed
+      ansible.builtin.assert:
+        that:
+          - "'22/tcp' in ufw_rules.stdout"
+          - "'80/tcp' in ufw_rules.stdout"
+          - "'443/tcp' in ufw_rules.stdout"
+        fail_msg: "One or more required firewall ports are not allowed."
+        success_msg: "SSH, HTTP, and HTTPS rules are configured."

@@ -1,0 +1,137 @@
+---
+- name: Converge TLS role
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    test_pki_directory: /tmp/molecule-pki
+
+    tls_private_key_path: /etc/ssl/private/tls-ubuntu.key
+    tls_csr_path: /etc/ssl/csr/tls-ubuntu.csr
+    tls_certificate_path: /etc/ssl/certs/tls-ubuntu.crt
+
+    tls_key_size: 2048
+    tls_common_name: tls-ubuntu.hardened-ansible.test
+    tls_subject_alt_names:
+      - DNS:tls-ubuntu.hardened-ansible.test
+      - IP:127.0.0.1
+
+    tls_nginx_server_name: tls-ubuntu.hardened-ansible.test
+    tls_nginx_document_root: /var/www/hardened-ansible
+
+    tls_fetch_csr: false
+    tls_source_remote: true
+    tls_ca_certificate_source: "{{ test_pki_directory }}/ca/ca.crt"
+    tls_signed_certificate_source: "{{ test_pki_directory }}/signed/tls-ubuntu.crt"
+
+  tasks:
+    - name: Install Nginx and certificate prerequisites
+      ansible.builtin.apt:
+        name:
+          - nginx
+          - openssl
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Create temporary PKI directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      loop:
+        - "{{ test_pki_directory }}/ca"
+        - "{{ test_pki_directory }}/signed"
+
+    - name: Generate temporary CA private key
+      community.crypto.openssl_privatekey:
+        path: "{{ test_pki_directory }}/ca/ca.key"
+        size: 2048
+        mode: "0600"
+
+    - name: Generate temporary CA CSR
+      community.crypto.openssl_csr:
+        path: "{{ test_pki_directory }}/ca/ca.csr"
+        privatekey_path: "{{ test_pki_directory }}/ca/ca.key"
+        common_name: Molecule Test CA
+        basic_constraints:
+          - "CA:TRUE"
+        basic_constraints_critical: true
+        key_usage:
+          - keyCertSign
+          - cRLSign
+        key_usage_critical: true
+
+    - name: Generate temporary CA certificate
+      community.crypto.x509_certificate:
+        path: "{{ test_pki_directory }}/ca/ca.crt"
+        csr_path: "{{ test_pki_directory }}/ca/ca.csr"
+        privatekey_path: "{{ test_pki_directory }}/ca/ca.key"
+        provider: selfsigned
+        selfsigned_not_after: "+365d"
+
+    - name: Generate server key and CSR
+      ansible.builtin.include_role:
+        name: tls
+        tasks_from: main
+
+    - name: Sign server CSR with temporary CA
+      community.crypto.x509_certificate:
+        path: "{{ test_pki_directory }}/signed/tls-ubuntu.crt"
+        csr_path: "{{ tls_csr_path }}"
+        ownca_path: "{{ test_pki_directory }}/ca/ca.crt"
+        ownca_privatekey_path: "{{ test_pki_directory }}/ca/ca.key"
+        provider: ownca
+        ownca_not_after: "+397d"
+
+    - name: Deploy TLS configuration
+      ansible.builtin.include_role:
+        name: tls
+        tasks_from: deploy
+
+    - name: Enable HTTP redirect virtual host
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/tls-ubuntu
+        dest: /etc/nginx/sites-enabled/tls-ubuntu
+        state: link
+
+    - name: Reload Nginx with HTTP redirect configuration
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
+      changed_when: false
+
+    - name: Create test website directory
+      ansible.builtin.file:
+        path: /var/www/hardened-ansible
+        state: directory
+        owner: root
+        group: www-data
+        mode: "0755"
+
+    - name: Create test website
+      ansible.builtin.copy:
+        content: "TLS Molecule test passed\n"
+        dest: /var/www/hardened-ansible/index.html
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Disable default Nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Ensure Nginx is enabled and running
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+    - name: Apply pending Nginx handlers
+      ansible.builtin.meta: flush_handlers

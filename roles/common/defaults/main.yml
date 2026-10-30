@@ -1,0 +1,8 @@
+---
+common_manage_timezone: true
+common_timezone: "{{ system_timezone }}"
+
+common_update_package_cache: "{{ system_update_cache }}"
+common_upgrade_packages: "{{ system_upgrade_packages }}"
+
+common_base_packages: "{{ system_base_packages }}"

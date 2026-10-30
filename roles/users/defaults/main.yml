@@ -1,0 +1,13 @@
+---
+users_default_shell: /bin/bash
+users_create_home: true
+users_manage_sudo: true
+users_sudo_nopasswd: true
+
+users_managed_accounts:
+  - name: ansible
+    groups:
+      - sudo
+    shell: "{{ users_default_shell }}"
+    create_home: "{{ users_create_home }}"
+    manage_sudo: "{{ users_manage_sudo }}"

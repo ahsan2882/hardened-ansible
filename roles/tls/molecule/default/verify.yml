@@ -1,0 +1,149 @@
+---
+- name: Verify TLS role
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    tls_test_host: tls-ubuntu.hardened-ansible.test
+
+  tasks:
+    - name: Check TLS private key permissions
+      ansible.builtin.stat:
+        path: /etc/ssl/private/tls-ubuntu.key
+      register: tls_private_key
+
+    - name: Assert TLS private key permissions
+      ansible.builtin.assert:
+        that:
+          - tls_private_key.stat.exists
+          - tls_private_key.stat.pw_name == "root"
+          - tls_private_key.stat.gr_name == "www-data"
+          - tls_private_key.stat.mode == "0640"
+
+    - name: Check server certificate
+      ansible.builtin.stat:
+        path: /etc/ssl/certs/tls-ubuntu.crt
+      register: tls_certificate
+
+    - name: Assert server certificate exists
+      ansible.builtin.assert:
+        that:
+          - tls_certificate.stat.exists
+          - tls_certificate.stat.mode == "0644"
+
+    - name: Check CA certificate installation
+      ansible.builtin.stat:
+        path: /usr/local/share/ca-certificates/hardened-ansible-ca.crt
+      register: ca_certificate
+
+    - name: Assert CA certificate exists
+      ansible.builtin.assert:
+        that:
+          - ca_certificate.stat.exists
+
+    - name: Verify server certificate against test CA
+      ansible.builtin.command:
+        cmd: >-
+          openssl verify
+          -CAfile /usr/local/share/ca-certificates/hardened-ansible-ca.crt
+          /etc/ssl/certs/tls-ubuntu.crt
+      changed_when: false
+
+    - name: Inspect certificate SAN
+      ansible.builtin.command:
+        cmd: openssl x509 -in /etc/ssl/certs/tls-ubuntu.crt -noout -ext subjectAltName
+      register: certificate_san
+      changed_when: false
+
+    - name: Assert certificate SAN entries
+      ansible.builtin.assert:
+        that:
+          - "'DNS:tls-ubuntu.hardened-ansible.test' in certificate_san.stdout"
+          - "'IP Address:127.0.0.1' in certificate_san.stdout"
+
+    - name: Validate Nginx configuration
+      ansible.builtin.command:
+        cmd: nginx -t
+      changed_when: false
+
+    - name: Check Nginx service
+      ansible.builtin.command:
+        cmd: systemctl is-active nginx
+      register: nginx_status
+      changed_when: false
+
+    - name: Assert Nginx is active
+      ansible.builtin.assert:
+        that:
+          - nginx_status.stdout == "active"
+
+    - name: Check HTTPS response
+      ansible.builtin.command:
+        cmd: >-
+          curl --silent --show-error
+          --cacert /usr/local/share/ca-certificates/hardened-ansible-ca.crt
+          --resolve tls-ubuntu.hardened-ansible.test:443:127.0.0.1
+          https://tls-ubuntu.hardened-ansible.test/
+      register: https_response
+      changed_when: false
+
+    - name: Assert HTTPS website content
+      ansible.builtin.assert:
+        that:
+          - "'TLS Molecule test passed' in https_response.stdout"
+
+    - name: Inspect Nginx listening ports
+      ansible.builtin.command:
+        cmd: ss -tlnp
+      register: nginx_listeners
+      changed_when: false
+
+    - name: Display Nginx listening ports
+      ansible.builtin.debug:
+        var: nginx_listeners.stdout_lines
+
+    - name: Inspect enabled Nginx sites
+      ansible.builtin.command:
+        cmd: ls -l /etc/nginx/sites-enabled/
+      register: enabled_sites
+      changed_when: false
+
+    - name: Display enabled Nginx sites
+      ansible.builtin.debug:
+        var: enabled_sites.stdout_lines
+
+    - name: Display HTTP redirect configuration
+      ansible.builtin.command:
+        cmd: cat /etc/nginx/sites-available/tls-ubuntu
+      register: redirect_config
+      changed_when: false
+
+    - name: Show HTTP redirect configuration
+      ansible.builtin.debug:
+        var: redirect_config.stdout
+
+    - name: Inspect loaded HTTP listeners
+      ansible.builtin.command:
+        cmd: nginx -T
+      register: nginx_config
+      changed_when: false
+
+    - name: Show HTTP listen directives
+      ansible.builtin.debug:
+        msg: "{{ nginx_config.stdout_lines | select('search', 'listen .*80') | list }}"
+
+    - name: Check HTTP redirect
+      ansible.builtin.command:
+        cmd: >-
+          curl --silent --show-error --head
+          --resolve tls-ubuntu.hardened-ansible.test:80:127.0.0.1
+          http://tls-ubuntu.hardened-ansible.test/
+      register: http_response
+      changed_when: false
+
+    - name: Assert HTTP redirects to HTTPS
+      ansible.builtin.assert:
+        that:
+          - "'301' in http_response.stdout"
+          - "'Location: https://tls-ubuntu.hardened-ansible.test/' in http_response.stdout"

@@ -1,0 +1,21 @@
+all:
+  children:
+    webservers:
+      hosts:
+        web01:
+          ansible_host: 192.0.2.10
+          tls_common_name: web01.hardened-ansible.test
+          tls_subject_alt_names:
+            - DNS:web01.hardened-ansible.test
+            - IP:192.0.2.10
+
+        web02:
+          ansible_host: 192.0.2.11
+          tls_common_name: web02.hardened-ansible.test
+          tls_subject_alt_names:
+            - DNS:web02.hardened-ansible.test
+            - IP:192.0.2.11
+
+      vars:
+        ansible_user: ansible
+        ansible_ssh_private_key_file: ~/.ssh/ansible-nodes

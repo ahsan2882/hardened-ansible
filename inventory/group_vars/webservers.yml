@@ -1,0 +1,9 @@
+---
+# SSH connection configuration
+ansible_user: ansible
+ansible_ssh_private_key_file: /home/ansible/.ssh/ansible-nodes
+
+# Nginx TLS configuration
+nginx_tls_enabled: true
+tls_certificate_path: "/etc/ssl/certs/{{ inventory_hostname }}.crt"
+tls_ca_certificate_path: /usr/local/share/ca-certificates/hardened-ansible-ca.crt

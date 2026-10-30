@@ -1,0 +1,47 @@
+---
+- name: Verify managed users
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check managed user exists
+      ansible.builtin.command:
+        cmd: id ansible
+      register: user_info
+      changed_when: false
+
+    - name: Assert user belongs to sudo group
+      ansible.builtin.assert:
+        that:
+          - "'sudo' in user_info.stdout"
+        fail_msg: "The ansible user is not a member of the sudo group."
+        success_msg: "The ansible user exists and belongs to the sudo group."
+
+    - name: Check user home directory
+      ansible.builtin.stat:
+        path: /home/ansible
+      register: user_home
+
+    - name: Assert home directory exists
+      ansible.builtin.assert:
+        that:
+          - user_home.stat.exists
+          - user_home.stat.isdir
+          - user_home.stat.pw_name == "ansible"
+        fail_msg: "The ansible user's home directory is missing or incorrectly owned."
+        success_msg: "The ansible user's home directory exists and is correctly owned."
+
+    - name: Check sudoers configuration
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/ansible
+      register: sudoers_file
+
+    - name: Assert sudoers file permissions
+      ansible.builtin.assert:
+        that:
+          - sudoers_file.stat.exists
+          - sudoers_file.stat.pw_name == "root"
+          - sudoers_file.stat.mode == "0440"
+        fail_msg: "The ansible sudoers file is missing or has incorrect ownership or permissions."
+        success_msg: "The ansible sudoers file has correct ownership and permissions."

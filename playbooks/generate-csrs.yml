@@ -1,0 +1,8 @@
+---
+- name: Generate and retrieve web server CSRs
+  hosts: webservers
+  become: true
+  gather_facts: true
+
+  roles:
+    - tls

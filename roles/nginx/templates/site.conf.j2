@@ -1,0 +1,31 @@
+{% if nginx_tls_enabled | bool %}
+server {
+    listen {{ nginx_listen_port }};
+    listen [::]:{{ nginx_listen_port }};
+
+    server_name {{ nginx_server_name }};
+
+    return 301 https://$host$request_uri;
+}
+{% else %}
+server {
+    listen {{ nginx_listen_port }};
+    listen [::]:{{ nginx_listen_port }};
+
+    server_name {{ nginx_server_name }};
+
+    root {{ nginx_document_root }};
+    index index.html;
+
+    access_log /var/log/nginx/{{ inventory_hostname }}-access.log;
+    error_log /var/log/nginx/{{ inventory_hostname }}-error.log;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+}
+{% endif %}

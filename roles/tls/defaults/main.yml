@@ -1,0 +1,24 @@
+---
+tls_private_key_path: /etc/ssl/private/{{ inventory_hostname }}.key
+tls_csr_path: /etc/ssl/csr/{{ inventory_hostname }}.csr
+tls_certificate_path: /etc/ssl/certs/{{ inventory_hostname }}.crt
+tls_csr_fetch_directory: "{{ playbook_dir }}/../pki/ca/requests"
+
+tls_key_type: RSA
+tls_key_size: 3072
+tls_digest: sha256
+tls_certificate_validity_days: 397
+tls_https_port: 443
+tls_http_redirect: true
+
+tls_nginx_ssl_protocols:
+  - TLSv1.2
+  - TLSv1.3
+# Nginx integration
+tls_nginx_server_name: "{{ inventory_hostname }}.hardened-ansible.test"
+tls_nginx_document_root: /var/www/hardened-ansible
+tls_fetch_csr: true
+
+tls_ca_certificate_source: "{{ playbook_dir }}/../pki/ca/ca.crt"
+tls_signed_certificate_source: "{{ playbook_dir }}/../pki/ca/signed/{{ inventory_hostname }}.crt"
+tls_source_remote: false

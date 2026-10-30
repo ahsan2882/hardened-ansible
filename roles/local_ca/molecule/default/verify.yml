@@ -1,0 +1,59 @@
+---
+- name: Verify local CA
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    test_ca_directory: /tmp/molecule-local-ca
+
+  tasks:
+    - name: Check CA private key
+      ansible.builtin.stat:
+        path: "{{ test_ca_directory }}/ca.key"
+      register: ca_private_key
+
+    - name: Check CA certificate
+      ansible.builtin.stat:
+        path: "{{ test_ca_directory }}/ca.crt"
+      register: ca_certificate
+
+    - name: Check signed server certificate
+      ansible.builtin.stat:
+        path: "{{ test_ca_directory }}/signed/test-web01.crt"
+      register: server_certificate
+
+    - name: Assert CA artifacts exist with correct permissions
+      ansible.builtin.assert:
+        that:
+          - ca_private_key.stat.exists
+          - ca_private_key.stat.mode == "0600"
+          - ca_certificate.stat.exists
+          - server_certificate.stat.exists
+
+    - name: Inspect CA certificate extensions
+      ansible.builtin.command:
+        cmd: openssl x509 -in {{ test_ca_directory }}/ca.crt -noout -text
+      register: ca_certificate_details
+      changed_when: false
+
+    - name: Assert CA certificate constraints
+      ansible.builtin.assert:
+        that:
+          - "'CA:TRUE' in ca_certificate_details.stdout"
+          - "'Certificate Sign' in ca_certificate_details.stdout"
+          - "'CRL Sign' in ca_certificate_details.stdout"
+
+    - name: Verify server certificate against local CA
+      ansible.builtin.command:
+        cmd: >-
+          openssl verify
+          -CAfile {{ test_ca_directory }}/ca.crt
+          {{ test_ca_directory }}/signed/test-web01.crt
+      register: certificate_verification
+      changed_when: false
+
+    - name: Assert server certificate is trusted
+      ansible.builtin.assert:
+        that:
+          - "'OK' in certificate_verification.stdout"

@@ -1,0 +1,18 @@
+---
+local_ca_directory: "{{ playbook_dir }}/../pki/ca"
+
+local_ca_private_key: "{{ local_ca_directory }}/ca.key"
+local_ca_certificate: "{{ local_ca_directory }}/ca.crt"
+
+local_ca_common_name: "Hardened Ansible Local CA"
+local_ca_country: "PK"
+local_ca_organization: "Hardened Ansible Project"
+
+local_ca_key_size: 4096
+local_ca_validity_days: 3650
+local_ca_digest: sha256
+
+# Server certificate signing workspace
+local_ca_csr_directory: "{{ local_ca_directory }}/requests"
+local_ca_signed_directory: "{{ local_ca_directory }}/signed"
+local_ca_certificate_hosts: "{{ groups['webservers'] }}"

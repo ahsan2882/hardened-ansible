@@ -1,0 +1,42 @@
+---
+- name: Verify Nginx configuration
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check Nginx package
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Assert Nginx is installed
+      ansible.builtin.assert:
+        that:
+          - "'nginx' in ansible_facts.packages"
+
+    - name: Check Nginx service
+      ansible.builtin.command:
+        cmd: systemctl is-active nginx
+      register: nginx_service
+      changed_when: false
+      failed_when: nginx_service.stdout != "active"
+
+    - name: Validate Nginx configuration
+      ansible.builtin.command:
+        cmd: nginx -t
+      changed_when: false
+
+    - name: Check deployed website content
+      ansible.builtin.command:
+        cmd: grep -q 'Hardened Ansible' /var/www/hardened-ansible/index.html
+      changed_when: false
+
+    - name: Check HTTP virtual host configuration
+      ansible.builtin.stat:
+        path: /etc/nginx/sites-enabled/nginx-ubuntu
+      register: nginx_site
+
+    - name: Assert virtual host is enabled
+      ansible.builtin.assert:
+        that:
+          - nginx_site.stat.exists

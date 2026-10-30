@@ -1,0 +1,33 @@
+---
+- name: Verify Fail2ban configuration
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check Fail2ban package
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Assert Fail2ban is installed
+      ansible.builtin.assert:
+        that:
+          - "'fail2ban' in ansible_facts.packages"
+
+    - name: Check Fail2ban service
+      ansible.builtin.command:
+        cmd: systemctl is-active fail2ban
+      register: fail2ban_service
+      changed_when: false
+      failed_when: fail2ban_service.stdout != "active"
+
+    - name: Retrieve SSH jail configuration
+      ansible.builtin.command:
+        cmd: fail2ban-client get sshd bantime
+      register: fail2ban_bantime
+      changed_when: false
+
+    - name: Assert SSH jail bantime
+      ansible.builtin.assert:
+        that:
+          - "'600' in fail2ban_bantime.stdout"

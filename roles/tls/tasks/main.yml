@@ -1,0 +1,44 @@
+---
+- name: Create TLS private key directory
+  ansible.builtin.file:
+    path: /etc/ssl/private
+    state: directory
+    owner: root
+    group: www-data
+    mode: "0710"
+
+- name: Create TLS CSR directory
+  ansible.builtin.file:
+    path: /etc/ssl/csr
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Generate server private key
+  community.crypto.openssl_privatekey:
+    path: "{{ tls_private_key_path }}"
+    type: "{{ tls_key_type }}"
+    size: "{{ tls_key_size }}"
+    mode: "0640"
+    owner: root
+    group: www-data
+
+- name: Generate server certificate signing request
+  community.crypto.openssl_csr:
+    path: "{{ tls_csr_path }}"
+    privatekey_path: "{{ tls_private_key_path }}"
+    common_name: "{{ tls_common_name }}"
+    subject_alt_name: "{{ tls_subject_alt_names }}"
+    digest: "{{ tls_digest }}"
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: Retrieve server certificate signing request
+  ansible.builtin.fetch:
+    src: "{{ tls_csr_path }}"
+    dest: "{{ tls_csr_fetch_directory }}/"
+    flat: true
+    fail_on_missing: true
+  when: tls_fetch_csr | bool

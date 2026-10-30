@@ -1,0 +1,15 @@
+---
+fail2ban_service_enabled: true
+fail2ban_service_state: started
+
+fail2ban_bantime: 10m
+fail2ban_findtime: 10m
+fail2ban_maxretry: 5
+
+fail2ban_ignoreip:
+  - 127.0.0.1/8
+  - ::1
+
+fail2ban_sshd_enabled: true
+fail2ban_sshd_port: 22
+fail2ban_sshd_backend: systemd

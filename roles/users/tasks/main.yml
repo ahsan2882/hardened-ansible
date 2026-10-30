@@ -1,0 +1,30 @@
+---
+- name: Ensure managed user accounts exist
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    groups: "{{ item.groups | join(',') }}"
+    append: false
+    shell: "{{ item.shell }}"
+    create_home: "{{ item.create_home }}"
+    state: present
+  loop: "{{ users_managed_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Configure managed sudo policy
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ item.name }}"
+    content: "{{ item.name }} ALL=(ALL:ALL) {{ 'NOPASSWD:' if users_sudo_nopasswd else '' }}ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "/usr/sbin/visudo -cf %s"
+  when: item.manage_sudo | default(false)
+  loop: "{{ users_managed_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Remove cloud-init sudo policy
+  ansible.builtin.file:
+    path: /etc/sudoers.d/90-cloud-init-users
+    state: absent

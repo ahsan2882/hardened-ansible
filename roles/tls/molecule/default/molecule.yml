@@ -1,0 +1,27 @@
+---
+driver:
+  name: podman
+
+platforms:
+  - name: tls-ubuntu
+    image: docker.io/geerlingguy/docker-ubuntu2404-ansible:latest
+    pre_build_image: true
+    command: /sbin/init
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+
+ansible:
+  env:
+    ANSIBLE_CONFIG: /home/ansible/projects/hardened-ansible/ansible.cfg
+    ANSIBLE_COLLECTIONS_PATH: /home/ansible/projects/hardened-ansible/collections
+
+provisioner:
+  name: ansible
+  inventory:
+    host_vars:
+      tls-ubuntu:
+        ansible_user: root
+
+verifier:
+  name: ansible

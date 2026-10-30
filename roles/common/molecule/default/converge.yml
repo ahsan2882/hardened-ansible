@@ -1,0 +1,17 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: common
+      vars:
+        common_update_package_cache: true
+        common_manage_timezone: true
+        common_timezone: UTC
+        common_base_packages:
+          - curl
+          - wget
+          - git
+          - ca-certificates

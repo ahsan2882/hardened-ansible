@@ -1,0 +1,9 @@
+# Managed by Ansible - do not edit manually.
+
+Port {{ ssh_hardening_port }}
+PermitRootLogin {{ ssh_hardening_permit_root_login }}
+PasswordAuthentication {{ ssh_hardening_password_authentication }}
+PubkeyAuthentication {{ ssh_hardening_pubkey_authentication }}
+KbdInteractiveAuthentication {{ ssh_hardening_kbd_interactive_authentication }}
+MaxAuthTries {{ ssh_hardening_max_auth_tries }}
+AllowUsers {{ ssh_hardening_allow_users | join(' ') }}

@@ -1,0 +1,36 @@
+---
+- name: Verify SSH hardening
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Retrieve effective SSH configuration
+      ansible.builtin.command:
+        cmd: sshd -T
+      register: ssh_effective_config
+      changed_when: false
+
+    - name: Assert SSH security settings
+      ansible.builtin.assert:
+        that:
+          - "'permitrootlogin no' in ssh_effective_config.stdout"
+          - "'passwordauthentication no' in ssh_effective_config.stdout"
+          - "'pubkeyauthentication yes' in ssh_effective_config.stdout"
+          - "'kbdinteractiveauthentication no' in ssh_effective_config.stdout"
+          - "'maxauthtries 3' in ssh_effective_config.stdout"
+          - "'allowusers ansible' in ssh_effective_config.stdout"
+        fail_msg: "One or more SSH hardening settings are incorrect."
+        success_msg: "All expected SSH hardening settings are active."
+
+    - name: Verify SSH configuration syntax
+      ansible.builtin.command:
+        cmd: sshd -t
+      changed_when: false
+
+    - name: Verify SSH service is active
+      ansible.builtin.command:
+        cmd: systemctl is-active ssh
+      register: ssh_service_status
+      changed_when: false
+      failed_when: ssh_service_status.stdout != "active"

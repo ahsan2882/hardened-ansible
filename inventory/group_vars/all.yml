@@ -1,0 +1,21 @@
+---
+# General system configuration
+system_timezone: "Asia/Karachi"
+
+# Package management
+system_update_cache: true
+system_upgrade_packages: false
+
+# Common packages
+system_base_packages:
+  - curl
+  - wget
+  - vim
+  - nano
+  - git
+  - unzip
+  - rsync
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - tree

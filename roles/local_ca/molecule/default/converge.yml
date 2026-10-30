@@ -1,0 +1,44 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    local_ca_directory: /tmp/molecule-local-ca
+    local_ca_csr_directory: /tmp/molecule-local-ca/requests
+    local_ca_signed_directory: /tmp/molecule-local-ca/signed
+    local_ca_certificate_hosts:
+      - test-web01
+    local_ca_key_size: 2048
+    local_ca_validity_days: 365
+
+  tasks:
+    - name: Create test CA directory
+      ansible.builtin.file:
+        path: "{{ local_ca_directory }}"
+        state: directory
+        mode: "0700"
+
+    - name: Create test server private key
+      community.crypto.openssl_privatekey:
+        path: /tmp/molecule-local-ca/test-web01.key
+        size: 2048
+
+    - name: Create test CSR workspace
+      ansible.builtin.file:
+        path: "{{ local_ca_csr_directory }}"
+        state: directory
+        mode: "0700"
+
+    - name: Create test server CSR
+      community.crypto.openssl_csr:
+        path: /tmp/molecule-local-ca/requests/test-web01.csr
+        privatekey_path: /tmp/molecule-local-ca/test-web01.key
+        common_name: test-web01.hardened-ansible.test
+        subject_alt_name:
+          - DNS:test-web01.hardened-ansible.test
+
+    - name: Apply local CA role
+      ansible.builtin.include_role:
+        name: local_ca

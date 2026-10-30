@@ -1,0 +1,23 @@
+---
+- name: Configure common server baseline
+  hosts: webservers
+  become: true
+  gather_facts: true
+
+  roles:
+    - common
+    - users
+    - ssh_hardening
+    - firewall
+    - fail2ban
+    - nginx
+- name: Configure TLS and HTTPS
+  hosts: webservers
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Deploy TLS artifacts
+      ansible.builtin.import_role:
+        name: tls
+        tasks_from: deploy

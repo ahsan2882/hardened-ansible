@@ -1,0 +1,28 @@
+server {
+    listen {{ tls_https_port }} ssl;
+    listen [::]:{{ tls_https_port }} ssl;
+
+    server_name {{ tls_nginx_server_name }};
+    root {{ tls_nginx_document_root }};
+    index index.html;
+
+    access_log /var/log/nginx/{{ inventory_hostname }}-ssl-access.log;
+    error_log /var/log/nginx/{{ inventory_hostname }}-ssl-error.log;
+
+    ssl_certificate {{ tls_certificate_path }};
+    ssl_certificate_key {{ tls_private_key_path }};
+
+    ssl_protocols {{ tls_nginx_ssl_protocols | join(' ') }};
+
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+}

@@ -1,0 +1,41 @@
+---
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Configure default incoming policy
+  community.general.ufw:
+    direction: incoming
+    policy: "{{ firewall_default_incoming_policy }}"
+
+- name: Configure default outgoing policy
+  community.general.ufw:
+    direction: outgoing
+    policy: "{{ firewall_default_outgoing_policy }}"
+
+- name: Configure default routed policy
+  community.general.ufw:
+    direction: routed
+    policy: "{{ firewall_default_routed_policy }}"
+
+- name: Allow required inbound ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.protocol }}"
+    comment: "{{ item.comment }}"
+  loop: "{{ firewall_allowed_ports }}"
+  loop_control:
+    label: "{{ item.comment }} ({{ item.port }}/{{ item.protocol }})"
+
+- name: Configure UFW logging
+  community.general.ufw:
+    logging: "{{ firewall_logging }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  when: firewall_enabled

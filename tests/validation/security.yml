@@ -1,0 +1,84 @@
+---
+- name: Validate web server security baseline
+  hosts: webservers
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check Nginx configuration
+      ansible.builtin.command:
+        cmd: nginx -t
+      changed_when: false
+
+    - name: Check Nginx service
+      ansible.builtin.command:
+        cmd: systemctl is-active nginx
+      register: nginx_status
+      changed_when: false
+      failed_when: nginx_status.stdout != "active"
+
+    - name: Check Fail2ban service
+      ansible.builtin.command:
+        cmd: systemctl is-active fail2ban
+      register: fail2ban_status
+      changed_when: false
+      failed_when: fail2ban_status.stdout != "active"
+
+    - name: Check UFW firewall
+      ansible.builtin.command:
+        cmd: ufw status
+      register: ufw_status
+      changed_when: false
+      failed_when: "'Status: active' not in ufw_status.stdout"
+
+    - name: Check Fail2ban SSH jail
+      ansible.builtin.command:
+        cmd: fail2ban-client status sshd
+      register: ssh_jail_status
+      changed_when: false
+      failed_when: "'Status for the jail: sshd' not in ssh_jail_status.stdout"
+
+    - name: Retrieve effective SSH configuration
+      ansible.builtin.command:
+        cmd: sshd -T
+      register: ssh_effective_config
+      changed_when: false
+
+    - name: Validate SSH hardening settings
+      ansible.builtin.assert:
+        that:
+          - "'permitrootlogin no' in ssh_effective_config.stdout"
+          - "'passwordauthentication no' in ssh_effective_config.stdout"
+          - "'pubkeyauthentication yes' in ssh_effective_config.stdout"
+          - "'maxauthtries 3' in ssh_effective_config.stdout"
+          - "'allowusers ansible' in ssh_effective_config.stdout"
+        fail_msg: "SSH hardening configuration does not match the expected baseline."
+        success_msg: "SSH hardening configuration is valid."
+
+    - name: Verify TLS certificate against local CA
+      ansible.builtin.command:
+        cmd: >
+          openssl verify
+          -CAfile {{ tls_ca_certificate_path }}
+          {{ tls_certificate_path }}
+      changed_when: false
+
+    - name: Verify HTTPS endpoint
+      ansible.builtin.uri:
+        url: "https://{{ tls_common_name }}/"
+        method: GET
+        status_code: 200
+        validate_certs: true
+        return_content: false
+      delegate_to: localhost
+      become: false
+
+    - name: Verify HTTP redirects to HTTPS
+      ansible.builtin.uri:
+        url: "http://{{ tls_common_name }}/"
+        method: GET
+        status_code: 301
+        follow_redirects: none
+        return_content: false
+      delegate_to: localhost
+      become: false

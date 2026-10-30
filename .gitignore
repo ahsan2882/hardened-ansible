@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Ansible
+*.retry
+
+# PKI and certificates
+pki/
+*.key
+*.pem
+*.csr
+*.crt
+
+# Local environment
+.env
+.env.*
+
+# Local inventory
+/inventory/hosts.yml
+
+# Installed Ansible collections
+/collections/ansible_collections/
