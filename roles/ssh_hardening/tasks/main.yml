@@ -28,6 +28,20 @@
   ansible.builtin.file:
     path: /etc/ssh/sshd_config.d/99-ansible-hardening.conf
     state: absent
+  notify: Reload SSH service
+
+- name: Check for cloud-init SSH configuration
+  ansible.builtin.stat:
+    path: /etc/ssh/sshd_config.d/50-cloud-init.conf
+  register: cloud_init_ssh_config
+
+- name: Remove conflicting cloud-init AllowUsers directive
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config.d/50-cloud-init.conf
+    regexp: '^\s*AllowUsers\s+'
+    state: absent
+  when: cloud_init_ssh_config.stat.exists
+  notify: Reload SSH service
 
 - name: Ensure SSH service is enabled and running
   ansible.builtin.service:

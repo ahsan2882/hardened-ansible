@@ -1,4 +1,13 @@
 ---
+- name: Validate Ansible SSH public keys
+  ansible.builtin.assert:
+    that:
+      - users_ansible_authorized_keys | default([]) | length > 0
+    fail_msg: >-
+      No SSH public keys configured for the Ansible account.
+      Set users_ansible_authorized_keys before deploying SSH hardening.
+    quiet: true
+
 - name: Ensure managed user accounts exist
   ansible.builtin.user:
     name: "{{ item.name }}"

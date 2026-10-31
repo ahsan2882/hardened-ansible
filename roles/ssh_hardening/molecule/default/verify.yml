@@ -19,7 +19,11 @@
           - "'pubkeyauthentication yes' in ssh_effective_config.stdout"
           - "'kbdinteractiveauthentication no' in ssh_effective_config.stdout"
           - "'maxauthtries 3' in ssh_effective_config.stdout"
-          - "'allowusers ansible' in ssh_effective_config.stdout"
+          - >-
+            ssh_effective_config.stdout_lines
+            | select('match', '^allowusers ')
+            | list
+            == ['allowusers ansible']
         fail_msg: "One or more SSH hardening settings are incorrect."
         success_msg: "All expected SSH hardening settings are active."
 

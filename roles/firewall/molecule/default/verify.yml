@@ -41,7 +41,11 @@
     - name: Assert required ports are allowed
       ansible.builtin.assert:
         that:
-          - "'22/tcp' in ufw_rules.stdout"
+          - >-
+            ufw_rules.stdout_lines
+            | select('match', '^22/tcp\s+LIMIT\s+Anywhere(\s|$)')
+            | list
+            | length == 1
           - "'80/tcp' in ufw_rules.stdout"
           - "'443/tcp' in ufw_rules.stdout"
         fail_msg: "One or more required firewall ports are not allowed."

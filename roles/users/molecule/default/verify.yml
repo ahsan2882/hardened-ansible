@@ -65,6 +65,6 @@
       ansible.builtin.command:
         cmd: >-
           grep -Fqx
-          'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJDvX776oxGP1794r64QcO9782trYzo9oOlkewP89jKC molecule-test-key'
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIJsb+pBjxvdogsWFhQCnd7QmxzbqTwCIEooVw+v6Hj1 hardened-ansible-molecule-test"
           /home/ansible/.ssh/authorized_keys
       changed_when: false

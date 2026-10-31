@@ -6,7 +6,7 @@
 
   vars:
     users_ansible_authorized_keys:
-      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJDvX776oxGP1794r64QcO9782trYzo9oOlkewP89jKC molecule-test-key"
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIJsb+pBjxvdogsWFhQCnd7QmxzbqTwCIEooVw+v6Hj1 hardened-ansible-molecule-test"
 
   roles:
     - role: users
