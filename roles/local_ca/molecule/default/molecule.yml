@@ -13,8 +13,8 @@ platforms:
 
 ansible:
   env:
-    ANSIBLE_CONFIG: /home/ansible/projects/hardened-ansible/ansible.cfg
-    ANSIBLE_COLLECTIONS_PATH: /home/ansible/projects/hardened-ansible/collections
+    ANSIBLE_CONFIG: ${ANSIBLE_CONFIG:-../../ansible.cfg}
+    ANSIBLE_COLLECTIONS_PATH: ${ANSIBLE_COLLECTIONS_PATH:-../../collections}
 
 provisioner:
   name: ansible
