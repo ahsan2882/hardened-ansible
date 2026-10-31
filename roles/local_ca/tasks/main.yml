@@ -61,7 +61,7 @@
     ownca_privatekey_path: "{{ local_ca_private_key }}"
     provider: ownca
     ownca_digest: "{{ local_ca_digest }}"
-    ownca_not_after: "+397d"
+    ownca_not_after: "+{{ local_ca_server_certificate_validity_days }}d"
     mode: "0644"
   loop: "{{ local_ca_certificate_hosts }}"
   loop_control:

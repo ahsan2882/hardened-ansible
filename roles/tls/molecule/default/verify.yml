@@ -6,6 +6,7 @@
 
   vars:
     tls_test_host: tls-ubuntu.hardened-ansible.test
+    system_tls_certificate_validity_days: 397
 
   tasks:
     - name: Check TLS private key directory
@@ -74,6 +75,43 @@
         that:
           - "'DNS:tls-ubuntu.hardened-ansible.test' in certificate_san.stdout"
           - "'IP Address:127.0.0.1' in certificate_san.stdout"
+
+    - name: Inspect server certificate basic constraints
+      ansible.builtin.command:
+        cmd: openssl x509 -in /etc/ssl/certs/tls-ubuntu.crt -noout -ext basicConstraints
+      register: tls_basic_constraints
+      changed_when: false
+
+    - name: Assert server certificate is not a CA
+      ansible.builtin.assert:
+        that:
+          - "'CA:FALSE' in tls_basic_constraints.stdout"
+
+    - name: Inspect server certificate extended key usage
+      ansible.builtin.command:
+        cmd: openssl x509 -in /etc/ssl/certs/tls-ubuntu.crt -noout -ext extendedKeyUsage
+      register: tls_extended_key_usage
+      changed_when: false
+
+    - name: Assert server authentication usage
+      ansible.builtin.assert:
+        that:
+          - "'TLS Web Server Authentication' in tls_extended_key_usage.stdout"
+
+    - name: Check server certificate validity period
+      ansible.builtin.command:
+        cmd: >-
+          openssl x509
+          -in /etc/ssl/certs/tls-ubuntu.crt
+          -checkend {{ ((system_tls_certificate_validity_days | int) - 1) * 86400 }}
+          -noout
+      register: tls_validity_check
+      changed_when: false
+
+    - name: Assert certificate is valid for the expected duration
+      ansible.builtin.assert:
+        that:
+          - tls_validity_check.rc == 0
 
     - name: Validate Nginx configuration
       ansible.builtin.command:

@@ -30,6 +30,11 @@
     privatekey_path: "{{ tls_private_key_path }}"
     common_name: "{{ tls_common_name }}"
     subject_alt_name: "{{ tls_subject_alt_names }}"
+    basic_constraints:
+      - "CA:FALSE"
+    basic_constraints_critical: true
+    extended_key_usage:
+      - serverAuth
     digest: "{{ tls_digest }}"
     mode: "0644"
     owner: root

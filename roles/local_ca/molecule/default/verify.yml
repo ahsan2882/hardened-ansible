@@ -6,6 +6,7 @@
 
   vars:
     test_ca_directory: /tmp/molecule-local-ca
+    system_tls_certificate_validity_days: 397
 
   tasks:
     - name: Check CA private key
@@ -57,3 +58,46 @@
       ansible.builtin.assert:
         that:
           - "'OK' in certificate_verification.stdout"
+
+    - name: Inspect signed server certificate basic constraints
+      ansible.builtin.command:
+        cmd: >-
+          openssl x509
+          -in {{ test_ca_directory }}/signed/test-web01.crt
+          -noout -ext basicConstraints
+      register: server_basic_constraints
+      changed_when: false
+
+    - name: Assert signed server certificate is not a CA
+      ansible.builtin.assert:
+        that:
+          - "'CA:FALSE' in server_basic_constraints.stdout"
+
+    - name: Inspect signed server certificate extended key usage
+      ansible.builtin.command:
+        cmd: >-
+          openssl x509
+          -in {{ test_ca_directory }}/signed/test-web01.crt
+          -noout -ext extendedKeyUsage
+      register: server_extended_key_usage
+      changed_when: false
+
+    - name: Assert signed certificate supports server authentication
+      ansible.builtin.assert:
+        that:
+          - "'TLS Web Server Authentication' in server_extended_key_usage.stdout"
+
+    - name: Check signed server certificate validity period
+      ansible.builtin.command:
+        cmd: >-
+          openssl x509
+          -in {{ test_ca_directory }}/signed/test-web01.crt
+          -checkend {{ ((system_tls_certificate_validity_days | int) - 1) * 86400 }}
+          -noout
+      register: server_validity_check
+      changed_when: false
+
+    - name: Assert signed certificate has the expected validity period
+      ansible.builtin.assert:
+        that:
+          - server_validity_check.rc == 0

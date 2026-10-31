@@ -7,7 +7,7 @@ tls_csr_fetch_directory: "{{ playbook_dir }}/../pki/ca/requests"
 tls_key_type: RSA
 tls_key_size: 3072
 tls_digest: sha256
-tls_certificate_validity_days: 397
+tls_certificate_validity_days: "{{ system_tls_certificate_validity_days | default(397) }}"
 tls_https_port: 443
 tls_http_redirect: true
 

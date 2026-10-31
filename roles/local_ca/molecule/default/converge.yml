@@ -12,6 +12,7 @@
       - test-web01
     local_ca_key_size: 2048
     local_ca_validity_days: 365
+    system_tls_certificate_validity_days: 397
 
   tasks:
     - name: Create test CA directory
@@ -38,6 +39,11 @@
         common_name: test-web01.hardened-ansible.test
         subject_alt_name:
           - DNS:test-web01.hardened-ansible.test
+        basic_constraints:
+          - "CA:FALSE"
+        basic_constraints_critical: true
+        extended_key_usage:
+          - serverAuth
 
     - name: Apply local CA role
       ansible.builtin.include_role:

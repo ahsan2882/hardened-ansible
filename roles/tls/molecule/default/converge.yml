@@ -19,11 +19,12 @@
 
     tls_nginx_server_name: tls-ubuntu.hardened-ansible.test
     tls_nginx_document_root: /var/www/hardened-ansible
-
+    tls_certificate_validity_days: 397
     tls_fetch_csr: false
     tls_source_remote: true
     tls_ca_certificate_source: "{{ test_pki_directory }}/ca/ca.crt"
     tls_signed_certificate_source: "{{ test_pki_directory }}/signed/tls-ubuntu.crt"
+    system_tls_certificate_validity_days: 397
 
   tasks:
     - name: Install Nginx and certificate prerequisites
@@ -87,7 +88,7 @@
         ownca_path: "{{ test_pki_directory }}/ca/ca.crt"
         ownca_privatekey_path: "{{ test_pki_directory }}/ca/ca.key"
         provider: ownca
-        ownca_not_after: "+397d"
+        ownca_not_after: "+{{ tls_certificate_validity_days }}d"
 
     - name: Deploy TLS configuration
       ansible.builtin.include_role:

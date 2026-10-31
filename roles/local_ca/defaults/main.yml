@@ -11,6 +11,7 @@ local_ca_organization: "Hardened Ansible Project"
 local_ca_key_size: 4096
 local_ca_validity_days: 3650
 local_ca_digest: sha256
+local_ca_server_certificate_validity_days: "{{ system_tls_certificate_validity_days | default(397) }}"
 
 # Server certificate signing workspace
 local_ca_csr_directory: "{{ local_ca_directory }}/requests"
