@@ -4,5 +4,8 @@
   become: true
   gather_facts: true
 
+  vars:
+    system_ssh_port: 22
+
   roles:
     - role: fail2ban

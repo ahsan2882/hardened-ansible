@@ -1,6 +1,7 @@
 ---
 # General system configuration
 system_timezone: "Asia/Karachi"
+system_ssh_port: 22
 
 # Package management
 system_update_cache: true

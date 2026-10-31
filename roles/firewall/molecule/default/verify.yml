@@ -4,6 +4,9 @@
   become: true
   gather_facts: false
 
+  vars:
+    system_ssh_port: 22
+
   tasks:
     - name: Check UFW package
       ansible.builtin.package_facts:
@@ -43,7 +46,7 @@
         that:
           - >-
             ufw_rules.stdout_lines
-            | select('match', '^22/tcp\s+LIMIT\s+Anywhere(\s|$)')
+            | select('match', '^' ~ (system_ssh_port | string) ~ '/tcp\s+LIMIT\s+Anywhere(\s|$)')
             | list
             | length == 1
           - "'80/tcp' in ufw_rules.stdout"

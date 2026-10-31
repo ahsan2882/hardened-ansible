@@ -4,7 +4,7 @@ firewall_default_outgoing_policy: allow
 firewall_default_routed_policy: deny
 
 firewall_allowed_ports:
-  - port: "22"
+  - port: "{{ system_ssh_port | string }}"
     protocol: tcp
     rule: limit
     comment: SSH
