@@ -1,5 +1,9 @@
 # Hardened Ansible
 
+[![Ansible CI](https://github.com/ahsan2882/hardened-ansible/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ahsan2882/hardened-ansible/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/ahsan2882/hardened-ansible)](LICENSE.md)
+
+
 A reusable Ansible infrastructure automation project for deploying and hardening Ubuntu-based web servers.
 
 The project uses modular Ansible roles to configure system packages, user access, SSH security, firewall policies, Fail2ban, Nginx, and TLS certificates through a locally managed Certificate Authority.
