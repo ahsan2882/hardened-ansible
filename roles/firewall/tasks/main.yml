@@ -21,9 +21,9 @@
     direction: routed
     policy: "{{ firewall_default_routed_policy }}"
 
-- name: Allow required inbound ports
+- name: Configure required inbound ports
   community.general.ufw:
-    rule: allow
+    rule: "{{ item.rule | default('allow') }}"
     port: "{{ item.port }}"
     proto: "{{ item.protocol }}"
     comment: "{{ item.comment }}"

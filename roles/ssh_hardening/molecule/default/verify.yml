@@ -34,3 +34,15 @@
       register: ssh_service_status
       changed_when: false
       failed_when: ssh_service_status.stdout != "active"
+
+    - name: Check obsolete SSH configuration is absent
+      ansible.builtin.stat:
+        path: /etc/ssh/sshd_config.d/99-ansible-hardening.conf
+      register: obsolete_ssh_config
+
+    - name: Assert obsolete SSH configuration is absent
+      ansible.builtin.assert:
+        that:
+          - not obsolete_ssh_config.stat.exists
+        fail_msg: "The obsolete SSH hardening configuration still exists."
+        success_msg: "The obsolete SSH configuration has been removed."

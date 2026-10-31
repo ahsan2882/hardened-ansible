@@ -6,12 +6,15 @@ firewall_default_routed_policy: deny
 firewall_allowed_ports:
   - port: "22"
     protocol: tcp
+    rule: limit
     comment: SSH
   - port: "80"
     protocol: tcp
+    rule: allow
     comment: HTTP
   - port: "443"
     protocol: tcp
+    rule: allow
     comment: HTTPS
 
 firewall_logging: "low"

@@ -1,0 +1,27 @@
+---
+- name: Prepare SSH hardening test
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Create SSH configuration directory
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create simulated cloud-init SSH configuration
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/50-cloud-init.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          PermitRootLogin yes
+          PasswordAuthentication yes
+          PubkeyAuthentication no
+          MaxAuthTries 6
+          AllowUsers cloud-init-user

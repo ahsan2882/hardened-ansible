@@ -17,12 +17,17 @@
 - name: Deploy SSH hardening configuration
   ansible.builtin.template:
     src: sshd_config.conf.j2
-    dest: /etc/ssh/sshd_config.d/99-ansible-hardening.conf
+    dest: /etc/ssh/sshd_config.d/00-ansible-hardening.conf
     owner: root
     group: root
     mode: "0600"
     validate: "/usr/sbin/sshd -t -f %s"
   notify: Reload SSH service
+
+- name: Remove obsolete SSH hardening configuration
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d/99-ansible-hardening.conf
+    state: absent
 
 - name: Ensure SSH service is enabled and running
   ansible.builtin.service:

@@ -4,6 +4,9 @@ users_create_home: true
 users_manage_sudo: true
 users_sudo_nopasswd: true
 
+# Public keys authorized to access the Ansible automation account.
+users_ansible_authorized_keys: []
+
 users_managed_accounts:
   - name: ansible
     groups:
@@ -11,3 +14,4 @@ users_managed_accounts:
     shell: "{{ users_default_shell }}"
     create_home: "{{ users_create_home }}"
     manage_sudo: "{{ users_manage_sudo }}"
+    authorized_keys: "{{ users_ansible_authorized_keys }}"

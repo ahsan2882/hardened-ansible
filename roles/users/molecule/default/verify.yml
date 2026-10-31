@@ -45,3 +45,26 @@
           - sudoers_file.stat.mode == "0440"
         fail_msg: "The ansible sudoers file is missing or has incorrect ownership or permissions."
         success_msg: "The ansible sudoers file has correct ownership and permissions."
+
+    - name: Check authorized_keys file
+      ansible.builtin.stat:
+        path: /home/ansible/.ssh/authorized_keys
+      register: authorized_keys_file
+
+    - name: Assert authorized_keys ownership and permissions
+      ansible.builtin.assert:
+        that:
+          - authorized_keys_file.stat.exists
+          - authorized_keys_file.stat.pw_name == "ansible"
+          - authorized_keys_file.stat.gr_name == "ansible"
+          - authorized_keys_file.stat.mode == "0600"
+        fail_msg: "The authorized_keys file has incorrect ownership or permissions."
+        success_msg: "The authorized_keys file has correct ownership and permissions."
+
+    - name: Verify configured public key
+      ansible.builtin.command:
+        cmd: >-
+          grep -Fqx
+          'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJDvX776oxGP1794r64QcO9782trYzo9oOlkewP89jKC molecule-test-key'
+          /home/ansible/.ssh/authorized_keys
+      changed_when: false

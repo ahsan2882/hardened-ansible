@@ -4,8 +4,8 @@
     path: /etc/ssl/private
     state: directory
     owner: root
-    group: www-data
-    mode: "0710"
+    group: root
+    mode: "0700"
 
 - name: Create TLS CSR directory
   ansible.builtin.file:
@@ -20,9 +20,9 @@
     path: "{{ tls_private_key_path }}"
     type: "{{ tls_key_type }}"
     size: "{{ tls_key_size }}"
-    mode: "0640"
+    mode: "0600"
     owner: root
-    group: www-data
+    group: root
 
 - name: Generate server certificate signing request
   community.crypto.openssl_csr:

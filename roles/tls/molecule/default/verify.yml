@@ -8,6 +8,19 @@
     tls_test_host: tls-ubuntu.hardened-ansible.test
 
   tasks:
+    - name: Check TLS private key directory
+      ansible.builtin.stat:
+        path: /etc/ssl/private
+      register: tls_private_key_directory
+
+    - name: Assert TLS private key directory permissions
+      ansible.builtin.assert:
+        that:
+          - tls_private_key_directory.stat.exists
+          - tls_private_key_directory.stat.pw_name == "root"
+          - tls_private_key_directory.stat.gr_name == "root"
+          - tls_private_key_directory.stat.mode == "0700"
+
     - name: Check TLS private key permissions
       ansible.builtin.stat:
         path: /etc/ssl/private/tls-ubuntu.key
@@ -18,8 +31,8 @@
         that:
           - tls_private_key.stat.exists
           - tls_private_key.stat.pw_name == "root"
-          - tls_private_key.stat.gr_name == "www-data"
-          - tls_private_key.stat.mode == "0640"
+          - tls_private_key.stat.gr_name == "root"
+          - tls_private_key.stat.mode == "0600"
 
     - name: Check server certificate
       ansible.builtin.stat:

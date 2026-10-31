@@ -1,4 +1,20 @@
 ---
+- name: Secure TLS private key directory
+  ansible.builtin.file:
+    path: /etc/ssl/private
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Secure existing TLS private key
+  ansible.builtin.file:
+    path: "{{ tls_private_key_path }}"
+    state: file
+    owner: root
+    group: root
+    mode: "0600"
+
 - name: Deploy signed server certificate
   ansible.builtin.copy:
     src: "{{ tls_signed_certificate_source }}"
