@@ -6,6 +6,15 @@
     update_cache: true
     cache_valid_time: 3600
 
+- name: Deploy Nginx global security configuration
+  ansible.builtin.template:
+    src: security.conf.j2
+    dest: /etc/nginx/conf.d/ansible-security.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload Nginx
+
 - name: Create Nginx document root
   ansible.builtin.file:
     path: "{{ nginx_document_root }}"

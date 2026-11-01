@@ -9,3 +9,16 @@ ssh_hardening_max_auth_tries: 3
 # Restrict SSH access to the automation account.
 ssh_hardening_allow_users:
   - ansible
+
+# Session and connection security
+ssh_hardening_x11_forwarding: "no"
+ssh_hardening_allow_agent_forwarding: "no"
+ssh_hardening_allow_tcp_forwarding: "no"
+ssh_hardening_permit_tunnel: "no"
+ssh_hardening_permit_empty_passwords: "no"
+
+ssh_hardening_login_grace_time: 30
+ssh_hardening_client_alive_interval: 300
+ssh_hardening_client_alive_count_max: 2
+ssh_hardening_max_sessions: 5
+ssh_hardening_permit_user_environment: "no"

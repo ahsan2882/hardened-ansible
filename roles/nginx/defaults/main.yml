@@ -10,3 +10,20 @@ nginx_index_title: "Hardened Ansible Web Server"
 
 nginx_remove_default_site: true
 nginx_tls_enabled: false
+# Nginx security
+nginx_server_tokens: "off"
+
+nginx_rate_limit_enabled: true
+nginx_rate_limit_zone: ansible_per_ip
+nginx_rate_limit: 10r/s
+nginx_rate_limit_burst: 20
+
+nginx_security_headers:
+  - name: X-Content-Type-Options
+    value: nosniff
+  - name: X-Frame-Options
+    value: SAMEORIGIN
+  - name: Referrer-Policy
+    value: strict-origin-when-cross-origin
+  - name: Permissions-Policy
+    value: "camera=(), microphone=(), geolocation=()"

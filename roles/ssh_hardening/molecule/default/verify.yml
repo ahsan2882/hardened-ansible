@@ -24,6 +24,16 @@
             | select('match', '^allowusers ')
             | list
             == ['allowusers ansible']
+          - "'x11forwarding no' in ssh_effective_config.stdout"
+          - "'allowagentforwarding no' in ssh_effective_config.stdout"
+          - "'allowtcpforwarding no' in ssh_effective_config.stdout"
+          - "'permittunnel no' in ssh_effective_config.stdout"
+          - "'permitemptypasswords no' in ssh_effective_config.stdout"
+          - "'logingracetime 30' in ssh_effective_config.stdout"
+          - "'clientaliveinterval 300' in ssh_effective_config.stdout"
+          - "'clientalivecountmax 2' in ssh_effective_config.stdout"
+          - "'maxsessions 5' in ssh_effective_config.stdout"
+          - "'permituserenvironment no' in ssh_effective_config.stdout"
         fail_msg: "One or more SSH hardening settings are incorrect."
         success_msg: "All expected SSH hardening settings are active."
 

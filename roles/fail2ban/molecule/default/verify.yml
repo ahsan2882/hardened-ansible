@@ -31,3 +31,31 @@
       ansible.builtin.assert:
         that:
           - "'600' in fail2ban_bantime.stdout"
+
+    - name: Retrieve SSH jail actions
+      ansible.builtin.command:
+        cmd: fail2ban-client get sshd actions
+      register: fail2ban_actions
+      changed_when: false
+
+    - name: Assert UFW is configured as the ban action
+      ansible.builtin.assert:
+        that:
+          - "'ufw' in fail2ban_actions.stdout"
+        fail_msg: "Fail2ban is not using the UFW action."
+
+    - name: Check Fail2ban SSH jail status
+      ansible.builtin.command:
+        cmd: fail2ban-client status sshd
+      register: fail2ban_ssh_status
+      changed_when: false
+
+    - name: Assert SSH jail is active
+      ansible.builtin.assert:
+        that:
+          - "'Status for the jail: sshd' in fail2ban_ssh_status.stdout"
+          - >-
+            fail2ban_ssh_status.stdout
+            is search('Currently banned:\\s+\\d+')
+        fail_msg: "The SSH jail is not reporting its ban status."
+        success_msg: "The SSH jail is active and reporting its ban status."

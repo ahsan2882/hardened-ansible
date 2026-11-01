@@ -5,6 +5,10 @@ server {
 
     server_name {{ nginx_server_name }};
 
+    {% for header in nginx_security_headers %}
+    add_header {{ header.name }} "{{ header.value }}" always;
+    {% endfor %}
+
     return 301 https://$host$request_uri;
 }
 {% else %}
@@ -14,11 +18,19 @@ server {
 
     server_name {{ nginx_server_name }};
 
+    {% for header in nginx_security_headers %}
+    add_header {{ header.name }} "{{ header.value }}" always;
+    {% endfor %}
+
     root {{ nginx_document_root }};
     index index.html;
 
     access_log /var/log/nginx/{{ inventory_hostname }}-access.log;
     error_log /var/log/nginx/{{ inventory_hostname }}-error.log;
+
+    {% if nginx_rate_limit_enabled | bool %}
+    limit_req zone={{ nginx_rate_limit_zone }} burst={{ nginx_rate_limit_burst }} nodelay;
+    {% endif %}
 
     location / {
         try_files $uri $uri/ =404;

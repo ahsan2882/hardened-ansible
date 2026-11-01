@@ -26,6 +26,26 @@
         cmd: nginx -t
       changed_when: false
 
+    - name: Check Nginx security configuration
+      ansible.builtin.command:
+        cmd: nginx -T
+      register: nginx_full_config
+      changed_when: false
+
+    - name: Assert Nginx security settings
+      ansible.builtin.assert:
+        that:
+          - "'server_tokens off;' in nginx_full_config.stdout"
+          - "'zone=ansible_per_ip:10m' in nginx_full_config.stdout"
+          - "'rate=10r/s;' in nginx_full_config.stdout"
+          - "'limit_req zone=ansible_per_ip burst=20 nodelay;' in nginx_full_config.stdout"
+          - "'X-Content-Type-Options' in nginx_full_config.stdout"
+          - "'X-Frame-Options' in nginx_full_config.stdout"
+          - "'Referrer-Policy' in nginx_full_config.stdout"
+          - "'Permissions-Policy' in nginx_full_config.stdout"
+        fail_msg: "One or more Nginx security settings are missing."
+        success_msg: "Nginx security settings are configured."
+
     - name: Check deployed website content
       ansible.builtin.command:
         cmd: grep -q 'Hardened Ansible' /var/www/hardened-ansible/index.html

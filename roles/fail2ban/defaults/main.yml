@@ -13,3 +13,4 @@ fail2ban_ignoreip:
 fail2ban_sshd_enabled: true
 fail2ban_sshd_port: "{{ system_ssh_port }}"
 fail2ban_sshd_backend: systemd
+fail2ban_banaction: ufw

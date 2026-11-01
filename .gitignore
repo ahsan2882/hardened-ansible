@@ -22,3 +22,5 @@ pki/
 
 # Installed Ansible collections
 /collections/ansible_collections/
+# Ansible runtime data
+.ansible/
