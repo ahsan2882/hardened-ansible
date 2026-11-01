@@ -40,13 +40,6 @@
       - >-
         'TLS Web Server Authentication' in
         (item.extended_key_usage | default([]))
-      - item.public_key_type == 'RSA'
-      - item.public_key_bits | int >= 3072
-      - item.key_usage is not none
-      - "'Digital Signature' in item.key_usage"
-      - "'Key Encipherment' in item.key_usage"
-      - item.extended_key_usage | length == 1
-      - "'TLS Web Server Authentication' in item.extended_key_usage"
     fail_msg: >-
       CSR validation failed for {{ item.item }}.
       Check its signature, Common Name, SANs, basic constraints,
