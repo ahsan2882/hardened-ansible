@@ -2,25 +2,40 @@
 
 ## Overview
 
-The `ssh_hardening` role configures OpenSSH on managed web servers using a dedicated configuration file:
+The `ssh_hardening` role configures OpenSSH through:
 
-`/etc/ssh/sshd_config.d/99-ansible-hardening.conf`
+`/etc/ssh/sshd_config.d/00-ansible-hardening.conf`
 
-The role validates the configuration before applying it and reloads SSH when changes are detected.
+The early filename is intentional: it helps the managed settings take precedence over later drop-ins that may define the same options. The role validates the template with `sshd -t` before installing it and reloads SSH when relevant changes occur.
 
-## Authentication Policy
+## Default Authentication and Access Policy
 
-The default configuration applies the following restrictions:
+| Setting                        | Default                | Purpose                                      |
+| ------------------------------ | ---------------------- | -------------------------------------------- |
+| `PermitRootLogin`              | `no`                   | Disables direct root SSH login               |
+| `PasswordAuthentication`       | `no`                   | Disables password authentication             |
+| `PubkeyAuthentication`         | `yes`                  | Enables public-key authentication            |
+| `KbdInteractiveAuthentication` | `no`                   | Disables keyboard-interactive authentication |
+| `MaxAuthTries`                 | `3`                    | Limits authentication attempts               |
+| `AllowUsers`                   | `ansible`              | Restricts permitted SSH users                |
+| `Port`                         | `system_ssh_port` (22) | Uses the shared configured SSH port          |
 
-| Setting | Value | Purpose |
-|---|---|---|
-| PermitRootLogin | no | Prevents direct root SSH login |
-| PasswordAuthentication | no | Disables password-based SSH authentication |
-| PubkeyAuthentication | yes | Requires public-key authentication |
-| KbdInteractiveAuthentication | no | Disables keyboard-interactive authentication |
-| MaxAuthTries | 3 | Limits authentication attempts per connection |
-| AllowUsers | ansible | Restricts SSH access to the automation account |
-| Port | 22 | Uses the default SSH port |
+## Session and Forwarding Defaults
+
+The role also defaults to:
+
+| Setting                 | Default       |
+| ----------------------- | ------------- |
+| `X11Forwarding`         | `no`          |
+| `AllowAgentForwarding`  | `no`          |
+| `AllowTcpForwarding`    | `no`          |
+| `PermitTunnel`          | `no`          |
+| `PermitEmptyPasswords`  | `no`          |
+| `LoginGraceTime`        | `30` seconds  |
+| `ClientAliveInterval`   | `300` seconds |
+| `ClientAliveCountMax`   | `2`           |
+| `MaxSessions`           | `5`           |
+| `PermitUserEnvironment` | `no`          |
 
 These values are configurable through role defaults and inventory variables.
 
@@ -28,49 +43,35 @@ These values are configurable through role defaults and inventory variables.
 
 The role:
 
-1. Installs the OpenSSH server package.
+1. Installs OpenSSH server.
 2. Ensures `/run/sshd` exists.
-3. Deploys the managed SSH hardening configuration.
-4. Validates the resulting configuration using `sshd -t`.
-5. Enables and starts the SSH service.
-6. Reloads SSH when the managed configuration changes.
+3. Deploys the managed drop-in with restrictive permissions.
+4. Validates the configuration using `sshd -t`.
+5. Removes the obsolete `99-ansible-hardening.conf` project drop-in.
+6. Removes a conflicting `AllowUsers` directive from `50-cloud-init.conf` when that file exists.
+7. Ensures the SSH service is enabled and running and reloads it when configuration changes.
 
-The configuration is deployed with restrictive file permissions.
+## Safe Deployment
 
-## Operational Considerations
+SSH hardening can lock out remote administrators if the automation key or allowed-user list is incorrect.
 
-- Ensure public-key authentication works before disabling password authentication.
-- Confirm the automation account is included in `AllowUsers`.
-- Keep an existing administrative session open while applying SSH changes.
-- Verify connectivity from a separate session before closing the existing session.
+- Configure and verify the automation account's public key before applying the role.
+- Confirm the account is included in `AllowUsers`.
 - Confirm the firewall permits the configured SSH port.
+- Keep an existing administrative session open while applying changes.
+- Verify a new SSH connection from a separate session before closing the original one.
+- Ensure console or other recovery access is available.
 
 ## Validation
 
-The project's security validation playbook checks the effective SSH configuration using `sshd -T`.
-
-It verifies:
-
-- Root login is disabled.
-- Password authentication is disabled.
-- Public-key authentication is enabled.
-- Keyboard-interactive authentication is disabled.
-- Maximum authentication attempts are limited to three.
-- SSH access is restricted to the `ansible` user.
-
-Run the validation playbook with:
+The security-validation playbook uses `sshd -T` to check selected effective settings:
 
 ```bash
 ansible-playbook tests/validation/security.yml
 ```
 
+It checks root login, password authentication, public-key authentication, maximum authentication attempts, and the configured allowed user. The SSH Molecule scenario provides additional role-level verification.
+
 ## Scope and Limitations
 
-This configuration provides a baseline for SSH access hardening. It does not implement:
-- SSH certificate-based authentication.
-- Multi-factor authentication.
-- Centralized SSH audit logging.
-- Automatic SSH key rotation.
-- Restrictions based on source IP addresses.
-
-These controls can be introduced according to the environment's security requirements.
+The current role does not configure SSH certificate authentication, MFA, centralized SSH audit logging, automated key rotation, or source-address restrictions. Add these controls separately if required by the environment.

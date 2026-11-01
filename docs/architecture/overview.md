@@ -2,44 +2,40 @@
 
 ## Introduction
 
-Hardened Ansible is an infrastructure automation project that provisions and hardens Ubuntu-based web servers using Ansible.
+Hardened Ansible provisions and hardens Ubuntu-based web servers using reusable Ansible roles. The baseline configures system packages, automation access, SSH, UFW, Fail2ban, Nginx, and TLS through a locally managed Certificate Authority (CA).
 
-The project establishes a reusable server baseline, configures SSH access and firewall rules, deploys Nginx, enables Fail2ban, and provisions HTTPS using certificates issued by a locally managed Certificate Authority (CA).
+The example inventory describes two web servers, `web01` and `web02`, using documentation-only addresses. Replace these with environment-specific values in the ignored local inventory.
 
-The current example inventory contains two web servers:
+## Components and Responsibilities
 
-- `web01`
-- `web02`
+### Ansible control node
 
-The inventory is provided as a template. Actual host addresses and connection settings belong in the local inventory, which is excluded from version control.
+The control node:
 
-## Architecture
+- Runs Ansible playbooks and role tests.
+- Stores inventory and project configuration.
+- Generates and stores the local CA private key and certificate.
+- Receives CSRs from managed servers.
+- Validates and signs server CSRs.
+- Deploys signed certificates and the CA certificate to managed servers.
 
-The project uses an Ansible control node to manage remote web servers over SSH.
+### Managed web servers
 
-The control node is responsible for:
+Each managed server:
 
-- Executing Ansible playbooks.
-- Managing inventory and configuration.
-- Generating and maintaining the local CA.
-- Collecting server certificate signing requests (CSRs).
-- Signing CSRs using the local CA.
-- Deploying signed certificates and the CA certificate.
+- Is accessed over SSH using the configured automation account.
+- Runs the common, users, SSH, firewall, Fail2ban, and Nginx roles.
+- Generates and retains its own TLS private key.
+- Generates a CSR containing its configured identity and SANs.
+- Serves the managed site over HTTPS after certificate deployment.
 
-Each managed web server is responsible for:
-
-- Maintaining its own TLS private key.
-- Generating its certificate signing request.
-- Running the Nginx web server.
-- Enforcing the configured SSH and firewall policies.
-- Running Fail2ban to protect SSH access.
-
-The CA private key remains on the control node. Server private keys are generated and retained on their respective web servers.
+Server private keys are not fetched to the control node. The CA private key remains on the control node and requires separate protection.
 
 ## Project Structure
 
 ```text
 hardened-ansible/
+├── .github/workflows/ci.yml
 ├── ansible.cfg
 ├── requirements.yml
 ├── inventory/
@@ -49,6 +45,7 @@ hardened-ansible/
 │       └── webservers.yml
 ├── playbooks/
 │   ├── site.yml
+│   ├── firewall.yml
 │   ├── generate-csrs.yml
 │   ├── local-ca.yml
 │   ├── sign-csrs.yml
@@ -66,68 +63,63 @@ hardened-ansible/
 │   ├── integration/
 │   └── validation/
 └── docs/
-    ├── architecture/
-    ├── security/
-    └── testing/
 ```
 
-Each role separates configurable defaults, implementation tasks, and any required handlers or templates. Every role also has its own Molecule test scenario.
+Each role uses defaults and tasks, with handlers and templates where needed. Each of the eight roles has a dedicated Molecule default scenario.
 
-## Configuration Management
+## Configuration
 
-The root-level `ansible.cfg` defines the project's default inventory, role search path, collection path, SSH host-key checking, and connection settings.
+The project-level `ansible.cfg` configures:
 
-Configuration is organized into:
-- inventory/group_vars/all.yml: shared settings such as timezone and base packages.
-- inventory/group_vars/webservers.yml: settings specific to managed web servers.
-- Role defaults: configurable behavior and role-specific values.
-- inventory/hosts.yml: local inventory containing actual host connection details.
+- `inventory/hosts.yml` as the default inventory.
+- `roles/` as the role search path.
+- `./collections` as the Ansible collection path.
+- SSH host-key checking.
+- SSH pipelining.
 
-The committed inventory/hosts.example.yml provides an example inventory using documentation-only IP addresses. Copy it to inventory/hosts.yml and adjust it for the target environment.
+Configuration is divided between:
 
-## Deployment Workflow
+- `inventory/group_vars/all.yml`: shared settings such as timezone, SSH port, package list, and server certificate validity.
+- `inventory/group_vars/webservers.yml`: web-server connection settings, TLS paths, and the automation account's authorized public key.
+- Role defaults: role-specific behavior and security settings.
+- `inventory/hosts.yml`: local host addresses and per-host certificate identity.
 
-The main deployment playbook is playbooks/site.yml.
+Copy `inventory/hosts.example.yml` to `inventory/hosts.yml` and customize it. Do not commit the local inventory or credentials.
 
-It applies the following roles to the webservers group:
-1. common: installs base packages and configures the system timezone.
-2. users: creates and configures managed user accounts and sudo policies.
-3. ssh_hardening: applies the SSH security configuration.
-4. firewall: configures UFW policies and permitted inbound ports.
-5. fail2ban: installs and configures the SSH jail.
-6. nginx: installs Nginx and deploys the landing page.
-7. TLS deployment tasks: deploy certificates, configure HTTPS, and redirect HTTP traffic.
+## Main Deployment
 
-The playbook uses privilege escalation for server configuration.
+`playbooks/site.yml` applies two plays to the `webservers` group:
 
-## Certificate Lifecycle
+1. The baseline play applies `common`, `users`, `ssh_hardening`, `firewall`, `fail2ban`, and `nginx`.
+2. The TLS play imports the `tls` role's `deploy` task file to install certificates and configure HTTPS.
 
-TLS provisioning is handled through separate playbooks and the tls and local_ca roles.
+The order is intentional: the Nginx role installs Nginx and its global security configuration before the TLS tasks add the HTTPS virtual host. The global Nginx configuration defines the request-rate-limit zone used by the HTTP and HTTPS sites.
 
-The intended lifecycle is:
-1. Generate a server private key and CSR on each web server.
-2. Fetch the CSR files to the Ansible control node.
-3. Create the local CA and its self-signed certificate.
-4. Sign the collected server CSRs using the local CA.
-5. Deploy each signed certificate and the CA certificate to the corresponding web server.
-6. Update the server's trusted CA store.
-7. Configure the Nginx HTTPS virtual host and HTTP-to-HTTPS redirect.
+`playbooks/firewall.yml` can apply the firewall role independently.
 
-Server private keys are not transferred to the control node. The CA private key is stored locally in the project's PKI workspace and must be protected.
+## Certificate Operations
 
-See [Certificate Lifecycle](certificate-lifestyle.md) for further details.
+Certificate provisioning is split into separate playbooks:
 
-## Testing
+| Playbook            | Operation                                                               |
+| ------------------- | ----------------------------------------------------------------------- |
+| `generate-csrs.yml` | Generate server private keys and CSRs on managed hosts, then fetch CSRs |
+| `local-ca.yml`      | Create the local CA                                                     |
+| `sign-csrs.yml`     | Inspect and validate all CSRs, then sign them                           |
+| `deploy-tls.yml`    | Install certificates and configure Nginx TLS                            |
 
-The project uses Molecule to test individual roles in isolated containers.
+See [Certificate Lifecycle](certificate-lifecycle.md) for the detailed sequence.
 
-The security validation playbook in tests/validation/security.yml checks the deployed server configuration, service status, SSH settings, certificate trust, and HTTP/HTTPS behavior.
+## Testing and CI
 
-See the testing documentation for details about the test strategy and execution commands.
-Security Considerations
-- Use SSH public-key authentication for Ansible connections.
-- Keep the CA private key outside version control and restrict access to it.
-- Do not commit local inventories, private keys, generated certificates, or other PKI artifacts.
-- Review firewall rules before applying them to remote systems.
-- Ensure the Ansible control node has secure access to the managed servers.
-- Test changes in an isolated environment before applying them to production systems.
+Each role has a Molecule scenario using Podman and a systemd-capable Ubuntu 24.04 container. GitHub Actions runs playbook syntax checks and a matrix of all eight role scenarios. The separate `tests/validation/security.yml` playbook validates selected settings on already-configured managed servers.
+
+The `tests/integration/` directory is currently a placeholder; there is no automated end-to-end VM integration suite.
+
+## Security Boundaries
+
+- The control node holds the CA private key; protect it independently of the repository.
+- Managed nodes retain their own server private keys.
+- SSH access depends on the configured public key and the automation account.
+- UFW controls host-level network access; it does not replace cloud security groups or network ACLs.
+- CI tests syntax and isolated roles; it does not deploy to real infrastructure.

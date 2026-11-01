@@ -2,68 +2,62 @@
 
 ## Overview
 
-Integration testing validates how multiple Ansible roles and infrastructure services work together.
-
-Unlike isolated Molecule role tests, integration tests should exercise interactions between components such as SSH, UFW, Fail2ban, Nginx, and TLS.
+Integration testing checks how multiple roles and services behave together. Relevant interactions include SSH access, UFW, Fail2ban, Nginx, and TLS.
 
 ## Current Status
 
-The project currently has:
+The repository currently includes:
 
-- Individual Molecule scenarios for all eight roles.
-- A security validation playbook at `tests/validation/security.yml`.
-- A complete deployment playbook at `playbooks/site.yml`.
+- Eight independent Molecule scenarios under `roles/*/molecule/default/`.
+- GitHub Actions syntax checks and a Molecule matrix for all eight roles.
+- A security-validation playbook at `tests/validation/security.yml`.
+- A complete baseline deployment playbook at `playbooks/site.yml`.
 
-A dedicated automated integration test suite has not yet been implemented.
+A dedicated automated integration suite that provisions and tests the full stack on disposable virtual machines has not yet been implemented. The `tests/integration/` directory contains this guidance and a README, not an executable end-to-end suite.
 
-## Planned Integration Test Coverage
+## Existing Security Validation
 
-The following scenarios are candidates for future integration tests:
-
-| Scenario            | Expected behavior                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------- |
-| Complete deployment | All configured roles apply successfully                                                     |
-| Idempotence         | A second deployment produces no unintended changes                                          |
-| SSH hardening       | SSH accepts the configured automation account and rejects disallowed authentication methods |
-| Firewall            | Required ports are accessible and other unsolicited inbound traffic is blocked              |
-| Fail2ban            | SSH jail is active with the expected configuration                                          |
-| Nginx               | Web server is active and serves the expected content                                        |
-| TLS                 | HTTPS uses a valid certificate signed by the project's CA                                   |
-| HTTP redirect       | HTTP requests are redirected to HTTPS                                                       |
-
-## Test Environment
-
-Integration tests should run against disposable Ubuntu 24.04 virtual machines or another dedicated test environment.
-
-The existing KVM web servers must not be treated as disposable CI targets.
-
-Use a separate test inventory and credentials. Do not expose private keys, CA private keys, or production inventory details in test logs or GitHub Actions artifacts.
-
-## Manual Validation
-
-The existing security validation playbook can be used to check selected deployed services and security settings:
+After the web servers have been configured, run:
 
 ```bash
 ansible-playbook tests/validation/security.yml
 ```
 
-The complete deployment can be applied using:
+The playbook checks Nginx configuration and service state, Fail2ban and its SSH jail, UFW activation, selected effective SSH settings, certificate verification, HTTPS response, and HTTP-to-HTTPS redirection.
 
-```bash
-ansible-playbook playbooks/site.yml
-```
+These checks validate selected aspects of an existing deployment. They do not provision the environment or test every firewall rule and security control.
 
-These commands provide useful manual validation, but they do not constitute a separate automated integration test suite.
+## Planned Integration Coverage
+
+| Scenario            | Expected behavior                                                                |
+| ------------------- | -------------------------------------------------------------------------------- |
+| Complete deployment | All baseline roles and TLS deployment complete successfully                      |
+| Idempotence         | A second deployment produces no unintended changes                               |
+| SSH hardening       | Automation access remains available and disallowed methods are rejected          |
+| Firewall            | Required services are reachable and unsolicited inbound traffic is blocked       |
+| Fail2ban            | SSH jail is active and uses the configured UFW action                            |
+| Nginx               | Site is served and configuration is valid                                        |
+| TLS                 | HTTPS certificate chains to the configured CA and matches the requested identity |
+| HTTP redirect       | HTTP requests receive the configured redirect to HTTPS                           |
+| Recovery behavior   | SSH/firewall changes do not leave the test environment inaccessible              |
+
+## Recommended Test Environment
+
+Use disposable Ubuntu 24.04 virtual machines or other dedicated test infrastructure. Do not use production KVM servers as disposable test targets.
+
+Use a separate inventory, credentials, and CA for integration tests. Do not expose private keys, CA signing keys, or production inventory in CI logs or artifacts.
 
 ## Future Automation
 
-A future integration workflow could:
-1. Provision disposable test virtual machines.
-2. Configure a dedicated Ansible inventory.
-3. Apply playbooks/site.yml.
-4. Run security validation.
-5. Check deployment idempotence.
-6. Collect logs and test results.
-7. Destroy the test infrastructure.
+A future integration workflow should:
 
-Integration testing should remain isolated from production infrastructure and should clean up resources even when a test fails.
+1. Provision disposable test virtual machines.
+2. Create a dedicated test inventory and credentials.
+3. Apply `playbooks/site.yml`.
+4. Run `tests/validation/security.yml`.
+5. Check deployment idempotence.
+6. Exercise SSH, firewall, HTTP, and HTTPS behavior.
+7. Collect non-sensitive diagnostics.
+8. Destroy test infrastructure even if a test fails.
+
+The integration workflow should remain isolated from production systems and should never use production CA material.

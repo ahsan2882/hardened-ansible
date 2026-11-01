@@ -2,97 +2,86 @@
 
 ## Overview
 
-Hardened Ansible uses a centralized Ansible control node to configure multiple remote web servers.
+The project uses a centralized Ansible control node to configure one or more Ubuntu web servers. The control node connects to managed servers over SSH. Clients connect to the web servers over HTTP and HTTPS.
 
-The control node communicates with managed servers over SSH. Web servers expose HTTP and HTTPS services to clients.
+The example inventory uses documentation-only IP addresses. Replace them in the local inventory.
 
-The example deployment contains:
-
-| Host | Inventory group | Example IP |
-|---|---|---|
-| ansible-control | Control node | Environment-specific |
-| web01 | webservers | 192.0.2.10 |
-| web02 | webservers | 192.0.2.11 |
-
-The addresses above are documentation-only examples. Replace them with the actual addresses in the local inventory.
+| Host              | Inventory group | Example address      |
+| ----------------- | --------------- | -------------------- |
+| `ansible-control` | Control node    | Environment-specific |
+| `web01`           | `webservers`    | `192.0.2.10`         |
+| `web02`           | `webservers`    | `192.0.2.11`         |
 
 ## Logical Topology
 
 ```text
-                  Ansible Control Node
-                 (Automation and Local CA)
-                          |
-                          |
+                 Ansible Control Node
+             (Ansible, inventory, local CA)
+                         |
                     SSH / TCP 22
-                          |
-              +-----------+-----------+
-              |                       |
-              v                       v
-        +-----------+           +-----------+
-        |   web01   |           |   web02   |
-        |           |           |           |
-        | SSH       |           | SSH       |
-        | Nginx     |           | Nginx     |
-        | Fail2ban  |           | Fail2ban  |
-        | UFW       |           | UFW       |
-        +-----------+           +-----------+
-              ^                       ^
-              |                       |
-          HTTP/HTTPS              HTTP/HTTPS
-          TCP 80/443              TCP 80/443
-              |                       |
-              +-----------+-----------+
-                          |
+                         |
+             +-----------+-----------+
+             |                       |
+             v                       v
+       +-----------+           +-----------+
+       |   web01   |           |   web02   |
+       |-----------|           |-----------|
+       | OpenSSH   |           | OpenSSH   |
+       | UFW       |           | UFW       |
+       | Fail2ban  |           | Fail2ban  |
+       | Nginx     |           | Nginx     |
+       +-----------+           +-----------+
+             ^                       ^
+             |                       |
+        HTTP/HTTPS              HTTP/HTTPS
+        TCP 80/443              TCP 80/443
+             |                       |
+             +-----------+-----------+
+                         |
                        Clients
 ```
 
-## Network Access Policy
-The firewall role configures UFW with the following default policies:
+## Host Firewall Policy
 
-| Traffic direction | Default policy |
-| ----------------- | -------------- |
-| Incoming          | Deny           |
-| Outgoing          | Allow          |
-| Routed            | Deny           |
+The default firewall policy is:
 
-The following inbound TCP ports are allowed:
+| Direction | Default |
+| --------- | ------- |
+| Incoming  | Deny    |
+| Outgoing  | Allow   |
+| Routed    | Deny    |
 
-| Port | Service | Purpose                                      |
-| ---- | ------- | -------------------------------------------- |
-| 22   | SSH     | Ansible management and administrative access |
-| 80   | HTTP    | Redirect clients to HTTPS                    |
-| 443  | HTTPS   | Secure web access                            |
+The default allowed inbound TCP services are:
 
-All other inbound traffic is denied by default.
+| Port                             | Service | Policy         |
+| -------------------------------- | ------- | -------------- |
+| Configured SSH port (default 22) | SSH     | UFW rate limit |
+| 80                               | HTTP    | Allow          |
+| 443                              | HTTPS   | Allow          |
+
+The SSH port is shared through `system_ssh_port` and used by the SSH-hardening, firewall, and Fail2ban configuration. HTTP and HTTPS ports are configurable in the relevant role defaults.
 
 ## Management Traffic
 
-The Ansible control node connects to the managed servers using SSH public-key authentication.
+The control node connects to managed servers using SSH public-key authentication and the configured `ansible` account. The SSH role restricts permitted users and disables password authentication and root login by default.
 
-The configured automation account is `ansible`.
-
-The SSH hardening role disables password authentication and root login, enables public-key authentication, and restricts SSH access to the configured allowed users.
+Keep a working administrative session and recovery access available when changing SSH or firewall settings.
 
 ## Client Traffic
 
-Clients access the web servers using their configured DNS names.
-- HTTP requests on TCP port 80 receive a permanent redirect to HTTPS.
-- HTTPS requests use TLS certificates signed by the project's local CA.
-- Nginx serves the managed landing page over HTTPS.
+- HTTP requests are redirected to HTTPS when `tls_http_redirect` is enabled.
+- HTTPS requests are served by Nginx using a certificate signed by the local CA.
+- Nginx applies configured response headers and per-client request rate limiting.
+- Clients must trust the project's CA certificate for normal certificate validation.
 
-The example DNS names are:
-- `web01.hardened-ansible.test`
-- `web02.hardened-ansible.test`
+The example server names are `web01.hardened-ansible.test` and `web02.hardened-ansible.test`. Configure DNS or local name resolution to map these names to the corresponding server addresses.
 
-These names must resolve to the corresponding server addresses in the client environment.
+## Certificate and DNS Requirements
 
-## DNS and Certificate Requirements
+The certificate SAN must contain the hostname or IP address used by the client. The requested name must resolve to the intended server, and the client must trust the issuing CA certificate.
 
-The example inventory defines DNS names and IP addresses in each server certificate's Subject Alternative Name (SAN) extension.
+The project installs the CA certificate into the managed servers' system trust stores. Other client machines need their own CA trust configuration.
 
-For successful HTTPS validation:
-1. The requested hostname must resolve to the intended server.
-2. The certificate must contain the requested hostname or IP address in its SAN extension.
-3. The client must trust the local CA certificate.
+## Scope
 
-The project deploys the CA certificate to managed web servers. Other clients that access the web servers must also trust that CA certificate independently.
+This diagram describes host-level access and service flows. It does not provision cloud security groups, subnet ACLs, routing, DNS, load balancers, or network segmentation.

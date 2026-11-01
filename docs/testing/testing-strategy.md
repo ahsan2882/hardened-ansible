@@ -2,85 +2,94 @@
 
 ## Overview
 
-Hardened Ansible uses multiple testing levels to validate role behavior, infrastructure integration, and security configuration.
+The project uses several complementary validation layers. They cover role behavior in disposable containers, syntax validation in CI, and selected checks against already-configured managed servers.
 
-The testing strategy aims to catch configuration errors before changes are applied to the managed web servers.
+## Test Layers
 
-## Testing Levels
+| Layer               | Purpose                                                       | Location / execution                               |
+| ------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
+| Role testing        | Test each role independently in a disposable Ubuntu container | `roles/*/molecule/default/`                        |
+| Playbook syntax     | Parse and validate project playbooks                          | GitHub Actions workflow                            |
+| Security validation | Check selected controls on configured servers                 | `tests/validation/security.yml`                    |
+| Integration testing | Exercise interactions across roles on disposable VMs          | Planned; not yet implemented as an automated suite |
 
-| Level                 | Purpose                                                        | Location                                      |
-| --------------------- | -------------------------------------------------------------- | --------------------------------------------- |
-| Role testing          | Tests individual roles in isolated containers                  | `roles/*/molecule/default/`                   |
-| Integration testing   | Tests interactions between roles and infrastructure components | `tests/integration/`                          |
-| Security validation   | Checks important security settings on managed hosts            | `tests/validation/security.yml`               |
-| Deployment validation | Checks the complete deployment and service behavior            | `playbooks/site.yml` and validation playbooks |
+## Molecule Role Testing
 
+Each of the eight roles has a default Molecule scenario. Scenarios use Podman, a systemd-capable Ubuntu 24.04 image, and Ansible verification.
 
-## Role Testing with Molecule
-
-Each of the eight Ansible roles has its own Molecule scenario.
-
-The scenarios use:
-
-- Podman as the container driver.
-- Ubuntu 24.04 as the test environment.
-- Ansible as the verifier.
-- A systemd-capable container configuration.
-
-A role's Molecule scenario follows the standard lifecycle:
-
-1. Create the test instance.
-2. Prepare the environment.
-3. Apply the role through the converge playbook.
-4. Verify the resulting configuration.
-5. Destroy the test instance.
-
-Run a role's complete test lifecycle from its directory:
+Run a role's complete lifecycle from its directory:
 
 ```bash
+source .venv/bin/activate
 cd roles/common
 molecule test
 ```
 
-Replace `common` with another role name to test that role.
+To run all scenarios from the repository root:
 
-## Security Validation
+```bash
+for role_dir in roles/*; do
+    if [ -f "$role_dir/molecule/default/molecule.yml" ]; then
+        role="${role_dir##*/}"
+        echo "Testing $role"
+        (
+            cd "$role_dir" &&
+            molecule test
+        ) || exit 1
+    fi
+done
+```
 
-The security validation playbook checks the deployed web servers.
+## GitHub Actions CI
 
-It currently verifies:
-- Nginx configuration validity and service status.
-- Fail2ban service status and SSH jail configuration.
+`.github/workflows/ci.yml` runs on pushes and pull requests targeting `main`.
+
+It contains two jobs:
+
+1. **Playbook syntax checks:** installs Ansible Core and required collections, then runs `ansible-playbook --syntax-check` against the main deployment, certificate workflow, and security-validation playbooks using the example inventory.
+2. **Molecule matrix:** runs `molecule test` independently for `common`, `fail2ban`, `firewall`, `local_ca`, `nginx`, `ssh_hardening`, `tls`, and `users`.
+
+The workflow currently uses Python 3.12, Ansible Core 2.21.5, Molecule 26.10.0, and Podman.
+
+CI tests syntax and isolated role behavior. It does not provision or deploy to the project's real KVM web servers.
+
+## Security Validation on Managed Hosts
+
+The playbook `tests/validation/security.yml` checks selected live configuration and service behavior:
+
+- Nginx configuration and service status.
+- Fail2ban service and SSH jail status.
 - UFW activation.
-- Effective SSH authentication settings.
-- TLS certificate verification against the configured CA.
-- HTTPS response status.
-- HTTP-to-HTTPS redirection.
+- Selected effective SSH settings from `sshd -T`.
+- Server certificate verification against the configured CA.
+- HTTPS response with certificate validation enabled.
+- HTTP redirect response.
 
-Run it from the project root:
+Run it from the repository root after the target servers have been configured:
 
 ```bash
 ansible-playbook tests/validation/security.yml
 ```
 
-## Integration Testing
+This is a validation playbook, not a substitute for a complete integration test suite or external security assessment.
 
-Integration tests are intended to verify behavior across multiple roles and services.
+## Integration Testing Status
 
-The `tests/integration/` directory is reserved for these tests. A separate automated integration test suite has not yet been implemented.
+The `tests/integration/` directory currently contains guidance only. An automated multi-role integration suite that provisions disposable VMs, deploys the full stack, verifies cross-service behavior, and destroys the VMs has not yet been implemented.
 
-## Test Environment Isolation
+Future integration automation should use a dedicated inventory and credentials, never target production infrastructure, test idempotence and service interactions, and clean up resources even after failures.
 
-Molecule tests use disposable Podman containers rather than the actual KVM web server VMs.
+## Isolation and Safety
 
-This keeps role-level testing separate from the running infrastructure.
+- Molecule scenarios must use disposable containers.
+- CI must use the committed example inventory, not a real environment inventory.
+- Live validation requires an explicitly selected test or managed environment.
+- Never expose private keys, CA signing material, credentials, or production inventory in test logs or artifacts.
+- Review SSH and firewall changes carefully to avoid locking out administrators.
 
-Do not point test playbooks or automated CI jobs at production inventory. Use a dedicated test inventory and disposable targets.
+## Current Limitations
 
-### Current Limitations
-
-- Role-level Molecule tests do not replace testing on real virtual machines.
-- The integration test suite is not yet implemented.
-- Security validation checks selected controls rather than every security setting.
-- CI automation is not yet configured.
-- External vulnerability scanning and penetration testing are outside the current test suite.
+- Molecule verifies roles independently; it does not prove that a full VM deployment works end to end.
+- The live validation playbook checks selected controls rather than every security setting.
+- No automated VM-based integration suite is currently present.
+- External vulnerability scanning and penetration testing are outside the current workflow.

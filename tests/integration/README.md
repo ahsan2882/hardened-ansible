@@ -4,22 +4,25 @@ This directory is reserved for automated tests that validate interactions betwee
 
 ## Current Status
 
-A dedicated integration test suite has not yet been implemented.
+A dedicated automated, VM-based integration suite has not yet been implemented.
 
-Existing validation is provided by:
+The repository currently provides:
 
-- Role-level Molecule scenarios under `roles/*/molecule/default/`.
-- The security validation playbook at `tests/validation/security.yml`.
+- Eight role-level Molecule scenarios under `roles/*/molecule/default/`.
+- GitHub Actions syntax checks and a Molecule matrix for all eight roles.
+- A live security-validation playbook at `tests/validation/security.yml`.
 - The complete deployment playbook at `playbooks/site.yml`.
 
-See [Integration Testing](../../docs/testing/integration-testing.md) for the planned test coverage and approach.
+The security-validation playbook checks selected properties of an already-configured environment; it does not provision disposable infrastructure or constitute a full integration suite.
 
-## Guidelines
+See [Integration Testing](../../docs/testing/integration-testing.md) for the planned coverage and approach.
 
-Future integration tests should:
+## Guidelines for Future Tests
 
-- Use a dedicated test inventory.
+- Use a dedicated test inventory and credentials.
 - Run against disposable infrastructure.
 - Never target production KVM virtual machines.
-- Avoid committing private keys, certificates, or credentials.
-- Clean up test resources after execution.
+- Do not reuse production CA keys or certificates.
+- Keep private keys, certificates, credentials, and real inventory out of logs and artifacts.
+- Test idempotence and interactions between SSH, UFW, Fail2ban, Nginx, and TLS.
+- Clean up test resources even when a test fails.

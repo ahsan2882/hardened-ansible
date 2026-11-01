@@ -2,101 +2,76 @@
 
 ## Overview
 
-Hardened Ansible uses a locally managed Certificate Authority (CA) to issue TLS certificates for its Nginx web servers.
+The project uses a locally managed Certificate Authority (CA) to issue certificates for Nginx web servers. Server private keys are generated and retained on their respective managed hosts; only CSRs are transferred to the control node for validation and signing.
 
-The certificate workflow separates server private-key generation, CSR creation, CA signing, and certificate deployment.
+## Components
 
-## Architecture
-
-The project uses the following components:
-
-- **Control node:** Generates and stores the local CA and signs server certificate requests.
-- **Managed web servers:** Generate their own private keys and Certificate Signing Requests (CSRs).
-- **Local CA:** Signs CSRs and issues server certificates.
-- **Nginx:** Uses the deployed server certificates to provide HTTPS.
-
-The CA private key remains on the control node. Server private keys are generated and retained on their respective managed hosts.
+- **Control node:** Stores the CA material, collects CSRs, validates requests, and signs certificates.
+- **Managed web servers:** Generate their own server private keys and CSRs, then use deployed certificates with Nginx.
+- **Local CA:** Issues server certificates after checking CSR identity and extensions.
+- **Nginx:** Serves HTTPS and optionally redirects HTTP requests to HTTPS.
 
 ## Cryptographic Defaults
 
-| Component | Default |
-|---|---|
-| CA private key | RSA 4096-bit |
-| Server private key | RSA 3072-bit |
-| CSR digest | SHA-256 |
-| Certificate validity | 397 days for issued server certificates |
-| CA validity | 3650 days |
-| TLS protocols | TLS 1.2 and TLS 1.3 |
+| Component                     | Default             |
+| ----------------------------- | ------------------- |
+| CA private key                | RSA 4096-bit        |
+| Server private key            | RSA 3072-bit        |
+| Digest                        | SHA-256             |
+| CA certificate validity       | 3650 days           |
+| Server certificate validity   | 397 days            |
+| TLS protocols                 | TLS 1.2 and TLS 1.3 |
+| Server CSR basic constraints  | Critical `CA:FALSE` |
+| Server CSR extended key usage | `serverAuth`        |
 
-The server certificate requests include the configured Common Name and Subject Alternative Names (SANs), including DNS names and IP addresses.
+## Certificate Workflow
 
-## Certificate Lifecycle
+The workflow is split into separate playbooks:
 
-1. Generate a private key on each managed web server.
-2. Create a CSR using the server's configured identity and SANs.
-3. Fetch the CSR to the control node.
-4. Create the local CA if it does not already exist.
-5. Sign the collected CSRs using the CA.
-6. Deploy the signed server certificates and CA certificate.
-7. Update the managed server's trusted CA store.
-8. Configure Nginx to serve HTTPS and redirect HTTP requests.
+1. `ansible-playbook playbooks/generate-csrs.yml` generates server keys and CSRs on managed hosts and fetches the CSRs.
+2. `ansible-playbook playbooks/local-ca.yml` creates the local CA.
+3. `ansible-playbook playbooks/sign-csrs.yml` validates every configured CSR and signs them with the CA.
+4. `ansible-playbook playbooks/deploy-tls.yml` deploys signed certificates and CA trust, then configures Nginx HTTPS and HTTP redirection.
 
-The CA certificate must also be trusted by clients that connect to the servers if certificate verification is expected to succeed.
+The signing task validates the CSR signature, configured Common Name, exact SAN list, critical `CA:FALSE` constraint, and server-authentication EKU before the signing task is reached.
 
-## Project PKI Directory
+## Nginx TLS Configuration
 
-The default CA workspace is located under the project directory:
+The TLS deployment configures:
 
-```text
-pki/
-└── ca/
-    ├── ca.key
-    ├── ca.crt
-    ├── requests/
-    │   ├── web01.csr
-    │   └── web02.csr
-    └── signed/
-        ├── web01.crt
-        └── web02.crt
-```
+- The signed server certificate and server private-key paths.
+- TLS 1.2 and TLS 1.3.
+- Session caching and timeout.
+- TLS session tickets disabled.
+- The configured security response headers.
+- Per-client request rate limiting, using the global zone created by the Nginx role.
+- A managed HTTPS virtual host.
+- An HTTP 301 redirect when `tls_http_redirect` is enabled.
 
-The exact files depend on the hosts configured for certificate issuance.
+Nginx configuration changes notify a handler that tests the configuration with `nginx -t` before reloading the service.
 
-The `pki/` directory is excluded from Git. Do not commit the CA private key, server private keys, or other private credentials.
+## Key and Certificate Permissions
 
-## Deployment and Validation
+The TLS role ensures the server private-key directory is owned by root with mode `0700` and the server private key is owned by root with mode `0600`.
 
-The TLS role deploys certificates and configures the Nginx HTTPS virtual host.
+The local CA workspace is created with mode `0700`; the CA private key is generated with mode `0600`. Keep the CA key and backups outside version control and protect them with access controls appropriate for a signing key.
 
-The security validation playbook checks:
-- Nginx configuration validity and service status.
-- Certificate verification against the configured CA certificate.
-- Successful HTTPS response with certificate validation enabled.
-- HTTP redirection to HTTPS.
+## Trust Requirements
 
-Run validation with:
+The CA certificate is installed into the managed server's system trust store. This does not automatically make other client machines trust the CA. Distribute the CA certificate through a trusted channel to clients that need to validate the server certificates.
+
+The certificate SAN must match the hostname or IP address used by the client, and that name must resolve to the intended server.
+
+## Validation
+
+The server-validation playbook checks certificate verification against the configured CA certificate, an HTTPS response with certificate validation enabled, and HTTP redirection:
 
 ```bash
 ansible-playbook tests/validation/security.yml
 ```
 
-## Important Operational Considerations
+The TLS Molecule scenario also verifies the role's deployment behavior, including HTTPS configuration and redirect enable/disable behavior.
 
-- Back up the CA private key securely and separately from the repository.
-- Restrict access to the CA private key and its workspace.
-- Distribute the CA certificate to clients that need to trust the issued certificates.
-- Protect server private keys with appropriate ownership and permissions.
-- Plan certificate renewal and CA rotation before certificates expire.
-- Review certificate identities and SANs before signing requests.
+## Limitations
 
-## Current Limitations
-
-The current implementation does not provide:
-- Automated certificate renewal and rotation.
-- Certificate revocation or CRL distribution.
-- OCSP responder support.
-- Automated CA key backup.
-- A separate approval process for signing CSRs.
-
-The current `local_ca` role contains both CA creation and CSR signing tasks in its main task sequence. Consequently, the `local-ca.yml` and `sign-csrs.yml` playbooks currently execute the same complete role
-task sequence rather than separate operations. This should be refactored into distinct task entry points.
+The project does not currently automate certificate renewal, certificate revocation, CRL distribution, OCSP, or CA rotation. Plan these operational processes before using the setup for long-lived production services.
