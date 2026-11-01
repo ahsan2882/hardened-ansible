@@ -63,4 +63,27 @@
     owner: root
     group: root
     mode: "0644"
+  when: tls_http_redirect | bool
+  notify: Validate and reload Nginx
+
+- name: Enable HTTP redirect virtual host
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ inventory_hostname }}"
+    dest: "/etc/nginx/sites-enabled/{{ inventory_hostname }}"
+    state: link
+  when: tls_http_redirect | bool
+  notify: Validate and reload Nginx
+
+- name: Disable HTTP redirect virtual host when disabled
+  ansible.builtin.file:
+    path: "/etc/nginx/sites-enabled/{{ inventory_hostname }}"
+    state: absent
+  when: not tls_http_redirect | bool
+  notify: Validate and reload Nginx
+
+- name: Remove HTTP redirect configuration when disabled
+  ansible.builtin.file:
+    path: "/etc/nginx/sites-available/{{ inventory_hostname }}"
+    state: absent
+  when: not tls_http_redirect | bool
   notify: Validate and reload Nginx

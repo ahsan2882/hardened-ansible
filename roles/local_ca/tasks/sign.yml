@@ -1,0 +1,71 @@
+
+---
+- name: Create CA CSR workspace
+  ansible.builtin.file:
+    path: "{{ local_ca_csr_directory }}"
+    state: directory
+    owner: "{{ ansible_facts['user_id'] }}"
+    group: "{{ ansible_facts['user_gid'] }}"
+    mode: "0700"
+
+- name: Create signed certificate workspace
+  ansible.builtin.file:
+    path: "{{ local_ca_signed_directory }}"
+    state: directory
+    owner: "{{ ansible_facts['user_id'] }}"
+    group: "{{ ansible_facts['user_gid'] }}"
+    mode: "0700"
+
+- name: Inspect all server certificate signing requests
+  community.crypto.openssl_csr_info:
+    path: "{{ local_ca_csr_directory }}/{{ item }}.csr"
+  loop: "{{ local_ca_certificate_hosts }}"
+  loop_control:
+    label: "{{ item }}"
+  register: local_ca_csr_inspection
+
+- name: Validate all server certificate signing requests
+  ansible.builtin.assert:
+    that:
+      - item.signature_valid | bool
+      - item.subject.commonName == hostvars[item.item]['tls_common_name']
+      - >-
+        (item.subject_alt_name | default([]) | sort)
+        ==
+        (hostvars[item.item]['tls_subject_alt_names'] | sort)
+      - item.basic_constraints is not none
+      - "'CA:FALSE' in item.basic_constraints"
+      - "'CA:TRUE' not in item.basic_constraints"
+      - item.basic_constraints_critical | bool
+      - >-
+        'TLS Web Server Authentication' in
+        (item.extended_key_usage | default([]))
+      - item.public_key_type == 'RSA'
+      - item.public_key_bits | int >= 3072
+      - item.key_usage is not none
+      - "'Digital Signature' in item.key_usage"
+      - "'Key Encipherment' in item.key_usage"
+      - item.extended_key_usage | length == 1
+      - "'TLS Web Server Authentication' in item.extended_key_usage"
+    fail_msg: >-
+      CSR validation failed for {{ item.item }}.
+      Check its signature, Common Name, SANs, basic constraints,
+      and extended key usage. No certificates will be signed.
+    success_msg: "CSR validation passed for {{ item.item }}."
+  loop: "{{ local_ca_csr_inspection.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Sign validated web server certificate requests
+  community.crypto.x509_certificate:
+    path: "{{ local_ca_signed_directory }}/{{ item }}.crt"
+    csr_path: "{{ local_ca_csr_directory }}/{{ item }}.csr"
+    ownca_path: "{{ local_ca_certificate }}"
+    ownca_privatekey_path: "{{ local_ca_private_key }}"
+    provider: ownca
+    ownca_digest: "{{ local_ca_digest }}"
+    ownca_not_after: "+{{ local_ca_server_certificate_validity_days }}d"
+    mode: "0644"
+  loop: "{{ local_ca_certificate_hosts }}"
+  loop_control:
+    label: "{{ item }}"

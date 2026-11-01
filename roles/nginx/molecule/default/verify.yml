@@ -46,6 +46,27 @@
         fail_msg: "One or more Nginx security settings are missing."
         success_msg: "Nginx security settings are configured."
 
+    - name: Check HTTP response headers
+      ansible.builtin.uri:
+        url: http://127.0.0.1/
+        headers:
+          Host: nginx-ubuntu
+        return_content: false
+        status_code: 200
+      register: nginx_http_response
+
+    - name: Assert HTTP security headers
+      ansible.builtin.assert:
+        that:
+          - nginx_http_response.x_content_type_options == 'nosniff'
+          - nginx_http_response.x_frame_options == 'SAMEORIGIN'
+          - nginx_http_response.referrer_policy == 'strict-origin-when-cross-origin'
+          - >-
+            nginx_http_response.permissions_policy ==
+            'camera=(), microphone=(), geolocation=()'
+          - "'server' in nginx_http_response"
+        fail_msg: "Expected HTTP security headers are missing."
+
     - name: Check deployed website content
       ansible.builtin.command:
         cmd: grep -q 'Hardened Ansible' /var/www/hardened-ansible/index.html

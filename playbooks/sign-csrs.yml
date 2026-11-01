@@ -4,5 +4,8 @@
   connection: local
   gather_facts: true
 
-  roles:
-    - local_ca
+  tasks:
+    - name: Sign server certificate requests
+      ansible.builtin.import_role:
+        name: local_ca
+        tasks_from: sign

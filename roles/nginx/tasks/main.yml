@@ -13,7 +13,7 @@
     owner: root
     group: root
     mode: "0644"
-  notify: Reload Nginx
+  notify: Validate and reload Nginx
 
 - name: Create Nginx document root
   ansible.builtin.file:
@@ -39,7 +39,7 @@
     group: root
     mode: "0644"
   when: not nginx_tls_enabled | bool
-  notify: Reload Nginx
+  notify: Validate and reload Nginx
 
 - name: Enable Nginx virtual host
   ansible.builtin.file:
@@ -47,14 +47,14 @@
     dest: "/etc/nginx/sites-enabled/{{ inventory_hostname }}"
     state: link
   when: not nginx_tls_enabled | bool
-  notify: Reload Nginx
+  notify: Validate and reload Nginx
 
 - name: Remove default Nginx site
   ansible.builtin.file:
     path: /etc/nginx/sites-enabled/default
     state: absent
   when: nginx_remove_default_site
-  notify: Reload Nginx
+  notify: Validate and reload Nginx
 
 - name: Validate Nginx configuration
   ansible.builtin.command:

@@ -4,5 +4,8 @@
   connection: local
   gather_facts: true
 
-  roles:
-    - local_ca
+  tasks:
+    - name: Initialize local certificate authority
+      ansible.builtin.import_role:
+        name: local_ca
+        tasks_from: create

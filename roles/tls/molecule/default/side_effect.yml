@@ -1,0 +1,49 @@
+---
+- name: Test disabling HTTP to HTTPS redirect
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    test_pki_directory: /tmp/molecule-pki
+    tls_private_key_path: /etc/ssl/private/tls-ubuntu.key
+    tls_csr_path: /etc/ssl/csr/tls-ubuntu.csr
+    tls_certificate_path: /etc/ssl/certs/tls-ubuntu.crt
+
+    tls_nginx_server_name: tls-ubuntu.hardened-ansible.test
+    tls_nginx_document_root: /var/www/hardened-ansible
+
+    tls_source_remote: true
+    tls_signed_certificate_source: "{{ test_pki_directory }}/signed/tls-ubuntu.crt"
+    tls_ca_certificate_source: "{{ test_pki_directory }}/ca/ca.crt"
+
+  tasks:
+    - name: Disable HTTP to HTTPS redirect
+      ansible.builtin.include_role:
+        name: tls
+        tasks_from: deploy
+      vars:
+        tls_http_redirect: false
+
+    - name: Verify HTTP redirect configuration was removed
+      ansible.builtin.stat:
+        path: "/etc/nginx/sites-available/{{ inventory_hostname }}"
+      register: http_redirect_config
+
+    - name: Verify HTTP redirect symlink was removed
+      ansible.builtin.stat:
+        path: "/etc/nginx/sites-enabled/{{ inventory_hostname }}"
+      register: http_redirect_symlink
+
+    - name: Assert HTTP redirect configuration and symlink are absent
+      ansible.builtin.assert:
+        that:
+          - not http_redirect_config.stat.exists
+          - not http_redirect_symlink.stat.exists
+
+    - name: Restore HTTP to HTTPS redirect
+      ansible.builtin.include_role:
+        name: tls
+        tasks_from: deploy
+      vars:
+        tls_http_redirect: true

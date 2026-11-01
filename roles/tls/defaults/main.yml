@@ -8,6 +8,7 @@ tls_key_type: RSA
 tls_key_size: 3072
 tls_digest: sha256
 tls_certificate_validity_days: "{{ system_tls_certificate_validity_days | default(397) }}"
+tls_http_port: 80
 tls_https_port: 443
 tls_http_redirect: true
 
@@ -22,3 +23,17 @@ tls_fetch_csr: true
 tls_ca_certificate_source: "{{ playbook_dir }}/../pki/ca/ca.crt"
 tls_signed_certificate_source: "{{ playbook_dir }}/../pki/ca/signed/{{ inventory_hostname }}.crt"
 tls_source_remote: false
+# Nginx security integration
+tls_nginx_rate_limit_enabled: true
+tls_nginx_rate_limit_zone: ansible_per_ip
+tls_nginx_rate_limit_burst: 20
+
+tls_nginx_security_headers:
+  - name: X-Content-Type-Options
+    value: nosniff
+  - name: X-Frame-Options
+    value: SAMEORIGIN
+  - name: Referrer-Policy
+    value: strict-origin-when-cross-origin
+  - name: Permissions-Policy
+    value: "camera=(), microphone=(), geolocation=()"

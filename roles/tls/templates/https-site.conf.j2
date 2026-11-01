@@ -3,12 +3,24 @@ server {
     listen [::]:{{ tls_https_port }} ssl;
 
     server_name {{ tls_nginx_server_name }};
+
     root {{ tls_nginx_document_root }};
     index index.html;
 
     access_log /var/log/nginx/{{ inventory_hostname }}-ssl-access.log;
     error_log /var/log/nginx/{{ inventory_hostname }}-ssl-error.log;
 
+    # Security headers
+    {% for header in tls_nginx_security_headers %}
+    add_header {{ header.name }} "{{ header.value }}" always;
+    {% endfor %}
+
+    # Request rate limiting
+    {% if tls_nginx_rate_limit_enabled | bool %}
+    limit_req zone={{ tls_nginx_rate_limit_zone }} burst={{ tls_nginx_rate_limit_burst }} nodelay;
+    {% endif %}
+
+    # TLS configuration
     ssl_certificate {{ tls_certificate_path }};
     ssl_certificate_key {{ tls_private_key_path }};
 

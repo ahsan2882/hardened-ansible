@@ -26,6 +26,20 @@
     tls_signed_certificate_source: "{{ test_pki_directory }}/signed/tls-ubuntu.crt"
     system_tls_certificate_validity_days: 397
 
+    nginx_rate_limit_enabled: true
+    nginx_rate_limit_zone: ansible_per_ip
+    nginx_rate_limit_burst: 20
+
+    nginx_security_headers:
+      - name: X-Content-Type-Options
+        value: nosniff
+      - name: X-Frame-Options
+        value: SAMEORIGIN
+      - name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - name: Permissions-Policy
+        value: "camera=(), microphone=(), geolocation=()"
+
   tasks:
     - name: Install Nginx and certificate prerequisites
       ansible.builtin.apt:
@@ -37,6 +51,19 @@
         state: present
         update_cache: true
         cache_valid_time: 3600
+
+    - name: Configure global Nginx security settings
+      ansible.builtin.copy:
+        dest: /etc/nginx/conf.d/ansible-security.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          server_tokens off;
+
+          limit_req_zone $binary_remote_addr
+              zone=ansible_per_ip:10m
+              rate=10r/s;
 
     - name: Create temporary PKI directories
       ansible.builtin.file:
@@ -94,12 +121,6 @@
       ansible.builtin.include_role:
         name: tls
         tasks_from: deploy
-
-    - name: Enable HTTP redirect virtual host
-      ansible.builtin.file:
-        src: /etc/nginx/sites-available/tls-ubuntu
-        dest: /etc/nginx/sites-enabled/tls-ubuntu
-        state: link
 
     - name: Reload Nginx with HTTP redirect configuration
       ansible.builtin.service:

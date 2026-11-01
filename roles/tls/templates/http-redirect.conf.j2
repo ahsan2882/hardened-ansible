@@ -1,7 +1,7 @@
 server {
-    listen 80;
-    listen [::]:80;
+    listen {{ tls_http_port }};
+    listen [::]:{{ tls_http_port }};
 
     server_name {{ tls_nginx_server_name }};
-    return 301 https://$host$request_uri;
+    return 301 https://$host{% if tls_https_port | int != 443 %}:{{ tls_https_port }}{% endif %}$request_uri;
 }
